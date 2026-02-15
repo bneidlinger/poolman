@@ -7,6 +7,8 @@
 
 A Bitcoin solo mining dashboard for the beautifully delusional. Aggregates live stats from [CKPool](https://solo.ckpool.org) and [Public Pool](https://public-pool.io) into a terminal-style command center that makes your mass of 500 GH/s miners feel like an interdimensional covert operation.
 
+![Operation TangNet Lab Dashboard](screenshot.png)
+
 ## Dashboards
 
 ### `/` — Pi Dashboard (Kiosk Mode)
