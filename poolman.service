@@ -1,0 +1,16 @@
+[Unit]
+Description=Poolman Mining Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/poolman
+Environment=BTC_ADDRESS=YOUR_ADDRESS
+ExecStart=/usr/bin/python3 app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

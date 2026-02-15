@@ -1,0 +1,1352 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OPERATION TANGNET // CLASSIFIED</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --portal-green: #39FF14;
+            --portal-green-dim: #1a7a0a;
+            --bg-dark: #050a05;
+            --panel-bg: #0a120a;
+            --panel-border: #1a2e1a;
+            --spy-tan: #c4a35a;
+            --spy-tan-dim: #6b5a30;
+            --red-alert: #ff3333;
+            --blue-pool: #4488ff;
+            --text-dim: #556655;
+            --text-mid: #88aa88;
+        }
+
+        body {
+            background: var(--bg-dark);
+            color: var(--portal-green);
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Scanline overlay */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.08) 2px,
+                rgba(0, 0, 0, 0.08) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* === HEADER === */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: linear-gradient(180deg, #0d150d 0%, var(--bg-dark) 100%);
+            border-bottom: 2px solid var(--portal-green-dim);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .signal-dot {
+            width: 10px; height: 10px;
+            background: var(--portal-green);
+            border-radius: 50%;
+            animation: signal-pulse 2s ease-in-out infinite;
+            box-shadow: 0 0 8px var(--portal-green);
+        }
+
+        @keyframes signal-pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--portal-green), 0 0 16px var(--portal-green); }
+            50% { opacity: 0.4; box-shadow: 0 0 2px var(--portal-green); }
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .header-classified {
+            color: var(--spy-tan);
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            border: 1px solid var(--spy-tan-dim);
+            padding: 2px 10px;
+        }
+
+        .header-right {
+            text-align: right;
+            font-size: 11px;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+        }
+
+        .header-right .timestamp {
+            color: var(--spy-tan);
+        }
+
+        /* === MAIN GRID === */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 55% 45%;
+            gap: 0;
+            height: calc(100vh - 100px);
+        }
+
+        .left-col {
+            padding: 16px;
+            overflow-y: auto;
+            border-right: 1px solid var(--panel-border);
+        }
+
+        .right-col {
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        /* === PANELS === */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            background: linear-gradient(90deg, #0d1a0d, var(--panel-bg));
+            border-bottom: 1px solid var(--panel-border);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--spy-tan);
+        }
+
+        .panel-header .tag {
+            font-size: 9px;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+        }
+
+        .panel-body {
+            padding: 12px 14px;
+        }
+
+        /* === MISSION BRIEFING === */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: rgba(57, 255, 20, 0.03);
+            border: 1px solid #1a2a1a;
+            padding: 10px 12px;
+        }
+
+        .stat-card .label {
+            font-size: 9px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--portal-green);
+        }
+
+        .stat-card .value.tan {
+            color: var(--spy-tan);
+        }
+
+        .pool-sources {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .pool-source {
+            border: 1px solid #1a2a1a;
+            padding: 10px 12px;
+        }
+
+        .pool-source .pool-name {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #1a2a1a;
+        }
+
+        .pool-source.ck .pool-name { color: var(--portal-green); }
+        .pool-source.pp .pool-name { color: var(--blue-pool); }
+
+        .pool-source .pool-stat {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        .pool-source .pool-stat .k { color: var(--text-dim); }
+        .pool-source .pool-stat .v { color: var(--text-mid); }
+
+        /* === FIELD OPERATIVES === */
+        .operative-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 10px;
+        }
+
+        .operative-card {
+            background: rgba(57, 255, 20, 0.02);
+            border: 1px solid #1a2a1a;
+            border-left: 3px solid var(--portal-green);
+            padding: 10px 12px;
+            transition: border-color 0.3s;
+        }
+
+        .operative-card.offline {
+            border-left-color: var(--red-alert);
+            opacity: 0.5;
+        }
+
+        .operative-card .card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .operative-card .codename {
+            font-size: 13px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .pool-badge {
+            font-size: 9px;
+            padding: 1px 6px;
+            border-radius: 2px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .pool-badge.ck { background: #1a2a1a; color: var(--portal-green); }
+        .pool-badge.pp { background: #1a1a2e; color: var(--blue-pool); }
+
+        .operative-card .card-stats {
+            font-size: 11px;
+            color: var(--text-mid);
+        }
+
+        .operative-card .card-stats .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1px;
+        }
+
+        .operative-card .card-stats .k { color: var(--text-dim); }
+
+        .operative-card .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #1a2a1a;
+            font-size: 10px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-dot.online {
+            background: var(--portal-green);
+            box-shadow: 0 0 4px var(--portal-green);
+        }
+
+        .status-dot.offline {
+            background: var(--red-alert);
+        }
+
+        .clearance {
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .clearance.active { color: var(--portal-green); }
+        .clearance.dark { color: var(--red-alert); }
+
+        /* === ODDS CALCULATOR === */
+        .odds-hero {
+            text-align: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #1a2a1a;
+            margin-bottom: 16px;
+        }
+
+        .odds-hero .odds-label {
+            font-size: 10px;
+            color: var(--spy-tan);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 8px;
+        }
+
+        .odds-hero .odds-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--portal-green);
+            text-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+        }
+
+        .odds-hero .odds-sub {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        .odds-detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .odds-detail {
+            background: rgba(57, 255, 20, 0.03);
+            border: 1px solid #1a2a1a;
+            padding: 8px 10px;
+        }
+
+        .odds-detail .label {
+            font-size: 9px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .odds-detail .value {
+            font-size: 14px;
+            color: var(--portal-green);
+            font-weight: bold;
+        }
+
+        .universe-callout {
+            background: rgba(196, 163, 90, 0.08);
+            border: 1px solid var(--spy-tan-dim);
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .universe-callout .mult {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--spy-tan);
+        }
+
+        .universe-callout .desc {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* === TIMELINE (SNAKE) === */
+        .timeline-container {
+            position: relative;
+            overflow: visible;
+            margin-top: 8px;
+        }
+
+        .timeline-svg {
+            position: absolute;
+            top: 0; left: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #snake-path {
+            fill: none;
+            stroke: var(--panel-border);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        #snake-path-glow {
+            fill: none;
+            stroke: var(--portal-green);
+            stroke-width: 4;
+            opacity: 0.08;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .snake-node {
+            position: absolute;
+            text-align: center;
+            width: 130px;
+            z-index: 2;
+        }
+
+        .snake-node .node-dot {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background: var(--panel-bg);
+            border: 2px solid var(--text-dim);
+            border-radius: 50%;
+            z-index: 3;
+        }
+
+        .snake-node .node-info {
+            padding-top: 10px;
+        }
+
+        .snake-node .node-name {
+            font-size: 11px;
+            color: var(--text-mid);
+            font-weight: bold;
+            line-height: 1.2;
+        }
+
+        .snake-node .node-year {
+            font-size: 9px;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+            margin-top: 1px;
+        }
+
+        /* Portal marker */
+        .portal-marker {
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--portal-green);
+            border-radius: 50%;
+            border-top-color: transparent;
+            border-bottom-color: rgba(57, 255, 20, 0.4);
+            animation: portal-spin 1.5s linear infinite;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.5), 0 0 40px rgba(57, 255, 20, 0.2), inset 0 0 12px rgba(57, 255, 20, 0.3);
+            z-index: 10;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes portal-spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .portal-label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--portal-green);
+            text-shadow: 0 0 12px rgba(57, 255, 20, 0.6);
+            z-index: 10;
+            background: rgba(5, 10, 5, 0.92);
+            padding: 3px 10px;
+            border: 1px solid var(--portal-green-dim);
+            white-space: nowrap;
+            transform: translateX(-50%);
+            line-height: 1.3;
+        }
+
+        .portal-label .era-name {
+            font-size: 10px;
+            color: var(--spy-tan);
+            display: block;
+            font-weight: normal;
+        }
+
+        .before-universe-banner {
+            background: rgba(255, 51, 51, 0.1);
+            border: 1px solid rgba(255, 51, 51, 0.3);
+            color: var(--red-alert);
+            text-align: center;
+            padding: 6px 12px;
+            margin-bottom: 12px;
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            animation: banner-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes banner-pulse {
+            0%, 100% { border-color: rgba(255, 51, 51, 0.3); }
+            50% { border-color: rgba(255, 51, 51, 0.7); }
+        }
+
+        /* Rick quip */
+        .rick-quip {
+            background: rgba(57, 255, 20, 0.05);
+            border-left: 3px solid var(--portal-green);
+            padding: 10px 14px;
+            margin-top: 16px;
+            font-size: 12px;
+            font-style: italic;
+            color: var(--text-mid);
+            line-height: 1.6;
+        }
+
+        .rick-quip .rick-attr {
+            display: block;
+            margin-top: 4px;
+            font-style: normal;
+            font-size: 10px;
+            color: var(--portal-green);
+            letter-spacing: 1px;
+        }
+
+        /* === FOOTER === */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 24px;
+            border-top: 1px solid var(--panel-border);
+            font-size: 11px;
+            color: var(--text-dim);
+            background: var(--panel-bg);
+        }
+
+        .footer-status {
+            display: flex;
+            gap: 16px;
+        }
+
+        .footer-status .conn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .footer a {
+            color: var(--spy-tan);
+            text-decoration: none;
+            letter-spacing: 1px;
+        }
+
+        .footer a:hover {
+            color: var(--portal-green);
+        }
+
+        /* Flash animation */
+        .flash { animation: data-flash 0.4s ease-out; }
+        @keyframes data-flash {
+            0% { background: rgba(57, 255, 20, 0.15); }
+            100% { background: transparent; }
+        }
+
+        /* Error */
+        .error-msg {
+            color: var(--red-alert);
+            padding: 10px 0;
+            font-style: italic;
+            font-size: 12px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--panel-border); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--portal-green-dim); }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <div class="signal-dot"></div>
+            <div class="header-title">Operation TangNet</div>
+            <div class="header-classified">CLASSIFIED: DIMENSION C-137</div>
+        </div>
+        <div class="header-right">
+            <div>TANGNET MINING COMMAND</div>
+            <div class="timestamp" id="last-updated">INITIALIZING...</div>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="main-grid">
+
+        <!-- LEFT COLUMN -->
+        <div class="left-col">
+
+            <!-- MISSION BRIEFING -->
+            <div class="panel">
+                <div class="panel-header">
+                    Mission Briefing
+                    <span class="tag">NETWORK INTEL</span>
+                </div>
+                <div class="panel-body">
+                    <div class="stat-grid">
+                        <div class="stat-card">
+                            <div class="label">Network Diff</div>
+                            <div class="value tan" id="net-diff">--</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">Block Height</div>
+                            <div class="value tan" id="net-height">--</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">Combined Hashrate</div>
+                            <div class="value" id="combined-hashrate">--</div>
+                        </div>
+                    </div>
+
+                    <div class="pool-sources">
+                        <div class="pool-source ck">
+                            <div class="pool-name">CKPool // Solo</div>
+                            <div class="pool-stat"><span class="k">Hashrate (1hr)</span> <span class="v" id="ck-hr">--</span></div>
+                            <div class="pool-stat"><span class="k">Workers</span> <span class="v" id="ck-workers">--</span></div>
+                            <div class="pool-stat"><span class="k">Best Share</span> <span class="v" id="ck-best">--</span></div>
+                            <div class="pool-stat"><span class="k">Best Ever</span> <span class="v" id="ck-bestever">--</span></div>
+                        </div>
+                        <div class="pool-source pp">
+                            <div class="pool-name">Public Pool // Bitaxe</div>
+                            <div class="pool-stat"><span class="k">Workers</span> <span class="v" id="pp-workers">--</span></div>
+                            <div class="pool-stat"><span class="k">Best Diff</span> <span class="v" id="pp-best">--</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FIELD OPERATIVES -->
+            <div class="panel">
+                <div class="panel-header">
+                    Field Operatives
+                    <span class="tag">AGENT DOSSIERS</span>
+                </div>
+                <div class="panel-body">
+                    <div class="operative-grid" id="operative-grid">
+                        <!-- populated by JS -->
+                    </div>
+                    <div id="operatives-error" class="error-msg" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="right-col">
+            <div class="panel">
+                <div class="panel-header">
+                    Interdimensional Odds Calculator
+                    <span class="tag">PORTAL GUN v2.0</span>
+                </div>
+                <div class="panel-body">
+
+                    <!-- Odds hero -->
+                    <div class="odds-hero">
+                        <div class="odds-label">Expected Time to Find Block</div>
+                        <div class="odds-value" id="odds-time">--</div>
+                        <div class="odds-sub" id="odds-sub">Calculating interdimensional probability...</div>
+                    </div>
+
+                    <!-- Odds details -->
+                    <div class="odds-detail-grid">
+                        <div class="odds-detail">
+                            <div class="label">Prob / Block</div>
+                            <div class="value" id="odds-prob">--</div>
+                        </div>
+                        <div class="odds-detail">
+                            <div class="label">Expected Blocks</div>
+                            <div class="value" id="odds-blocks">--</div>
+                        </div>
+                        <div class="odds-detail">
+                            <div class="label">Your Hashrate</div>
+                            <div class="value" id="odds-hashrate">--</div>
+                        </div>
+                        <div class="odds-detail">
+                            <div class="label">Portal Exit Year</div>
+                            <div class="value" id="odds-year">--</div>
+                        </div>
+                    </div>
+
+                    <!-- Universe multiplier callout -->
+                    <div class="universe-callout" id="universe-callout" style="display:none;">
+                        <div class="mult" id="universe-mult"></div>
+                        <div class="desc">times the age of the universe</div>
+                    </div>
+
+                    <!-- Before universe banner -->
+                    <div class="before-universe-banner" id="before-banner" style="display:none;">
+                        BEFORE THE UNIVERSE EXISTED
+                    </div>
+
+                    <!-- Timeline (Snake) -->
+                    <div class="timeline-container" id="timeline-container">
+                        <svg class="timeline-svg" id="timeline-svg" xmlns="http://www.w3.org/2000/svg">
+                            <path id="snake-path-glow" />
+                            <path id="snake-path" />
+                        </svg>
+                    </div>
+
+                    <!-- Rick quip -->
+                    <div class="rick-quip" id="rick-quip">
+                        <span id="rick-quip-text">Calculating... hold on, Morty, I'm doing SCIENCE.</span>
+                        <span class="rick-attr">- Rick Sanchez, C-137</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <div class="footer-status">
+            <span class="conn"><span class="status-dot online" id="ck-status-dot"></span> CKPool</span>
+            <span class="conn"><span class="status-dot online" id="pp-status-dot"></span> Public Pool</span>
+            <span class="conn"><span class="status-dot online" id="net-status-dot"></span> Network</span>
+        </div>
+        <span>Auto-refresh: 30s</span>
+        <a href="/">Pi Dashboard</a>
+    </div>
+
+    <script>
+        var REFRESH_INTERVAL = 30000;
+        var OFFLINE_THRESHOLD = 15 * 60 * 1000;
+        var AGE_OF_UNIVERSE = 13.8e9; // years
+
+        var latestCK = null;
+        var latestPP = null;
+        var latestNetwork = null;
+
+        // ===== TIMELINE DATA =====
+
+        var MILESTONES = [
+            { year: -13.8e9,  label: "Big Bang",             quip: "Even the Big Bang had better odds than you, Morty. At least IT created something." },
+            { year: -4.6e9,   label: "Solar System Forms",   quip: "4.6 billion years of stellar fusion and you're using it to run a space heater that guesses numbers." },
+            { year: -3.5e9,   label: "First Life",           quip: "Life literally crawled out of primordial soup faster than you'll find a block." },
+            { year: -500e6,   label: "Cambrian Explosion",   quip: "500 million species evolved and went extinct. Your mining rig will too." },
+            { year: -65e6,    label: "Dinosaurs Extinct",    quip: "An asteroid wiped out the dinosaurs and you STILL wouldn't have a block." },
+            { year: -2e6,     label: "Stone Tools",          quip: "Homo habilis figured out rocks. You can't figure out a nonce." },
+            { year: -300000,  label: "Homo Sapiens",         quip: "Humanity's entire existence is a rounding error in your block-finding timeline." },
+            { year: -10000,   label: "Agriculture",          quip: "Humans invented farming. You can't even harvest a hash." },
+            { year: -5000,    label: "First Cities",         quip: "They built Ur. You built a Raspberry Pi that makes your power meter spin." },
+            { year: -3000,    label: "Pyramids Built",       quip: "They moved 2.3 million stone blocks. You can't find ONE digital block." },
+            { year: -1200,    label: "Iron Age",             quip: "They smelted iron ore into tools. You're smelting electricity into heat." },
+            { year: 0,        label: "Year Zero",            quip: "Caesar conquered Gaul in less time than your expected block interval." },
+            { year: 1440,     label: "Printing Press",       quip: "Gutenberg changed information forever with movable type. Your rig just moves electrons in circles." },
+            { year: 1776,     label: "Independence",         quip: "They declared independence from tyranny. You can't even declare a valid nonce." },
+            { year: 1903,     label: "First Flight",         quip: "The Wright brothers flew 120 feet. Your hashrate barely gets off the ground." },
+            { year: 1945,     label: "Nuclear Age",          quip: "They split the atom. You can't even split a block reward." },
+            { year: 1969,     label: "Moon Landing",         quip: "NASA put humans on the Moon with 4KB of RAM. You have more and accomplish less." },
+            { year: 1991,     label: "World Wide Web",       quip: "Tim Berners-Lee connected the world. You're connected to a pool that feels your pain." },
+            { year: 2009,     label: "Bitcoin Created",      quip: "Satoshi mined the genesis block on a laptop. The game has changed, Morty." },
+            { year: 2026,     label: "Present Day",          quip: "Here we are, Morty. Living proof that hope is just math you haven't done yet." }
+        ];
+
+        var BEFORE_UNIVERSE_QUIP = "Your hashrate is so pathetic it transcends spacetime itself. We'd need to go to a dimension where math is broken just to make your odds work.";
+
+        // ===== FORMATTING HELPERS =====
+
+        function formatHashrate(hps) {
+            if (hps == null || isNaN(hps)) return "--";
+            if (hps >= 1e15) return (hps / 1e15).toFixed(2) + " PH/s";
+            if (hps >= 1e12) return (hps / 1e12).toFixed(2) + " TH/s";
+            if (hps >= 1e9) return (hps / 1e9).toFixed(2) + " GH/s";
+            if (hps >= 1e6) return (hps / 1e6).toFixed(2) + " MH/s";
+            if (hps >= 1e3) return (hps / 1e3).toFixed(2) + " kH/s";
+            return hps.toFixed(1) + " H/s";
+        }
+
+        function formatDifficulty(d) {
+            if (d == null || isNaN(d)) return "--";
+            if (d >= 1e15) return (d / 1e15).toFixed(2) + "P";
+            if (d >= 1e12) return (d / 1e12).toFixed(2) + "T";
+            if (d >= 1e9) return (d / 1e9).toFixed(2) + "G";
+            if (d >= 1e6) return (d / 1e6).toFixed(2) + "M";
+            if (d >= 1e3) return (d / 1e3).toFixed(2) + "k";
+            return String(d);
+        }
+
+        function formatNumber(n) {
+            if (n == null) return "--";
+            return Number(n).toLocaleString();
+        }
+
+        function formatYears(y) {
+            if (y >= 1e12) return (y / 1e12).toFixed(1) + " trillion years";
+            if (y >= 1e9) return (y / 1e9).toFixed(1) + " billion years";
+            if (y >= 1e6) return (y / 1e6).toFixed(1) + " million years";
+            if (y >= 1e3) return (y / 1e3).toFixed(1) + " thousand years";
+            return y.toFixed(1) + " years";
+        }
+
+        function formatCompactYear(y) {
+            if (y <= -1e9) return (y / 1e9).toFixed(1) + "B";
+            if (y <= -1e6) return (y / 1e6).toFixed(0) + "M";
+            if (y <= -1e3) return (y / 1e3).toFixed(0) + "K";
+            if (y < 0) return String(Math.round(y));
+            return String(Math.round(y));
+        }
+
+        function timeAgo(ts) {
+            if (!ts) return "--";
+            var d;
+            if (typeof ts === "string") { d = new Date(ts); }
+            else { d = new Date(ts * 1000); }
+            var sec = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (sec < 0) sec = 0;
+            if (sec < 60) return sec + "s ago";
+            if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+            if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+            return Math.floor(sec / 86400) + "d ago";
+        }
+
+        function isOnline(ts) {
+            if (!ts) return false;
+            var d;
+            if (typeof ts === "string") { d = new Date(ts); }
+            else { d = new Date(ts * 1000); }
+            return (Date.now() - d.getTime()) < OFFLINE_THRESHOLD;
+        }
+
+        function setText(id, text) {
+            var el = document.getElementById(id);
+            if (el && el.textContent !== text) {
+                el.textContent = text;
+                el.classList.remove("flash");
+                void el.offsetWidth;
+                el.classList.add("flash");
+            }
+        }
+
+        // ===== AGENT CODENAMES =====
+
+        var CODENAMES = [
+            "PICKLE RICK",     // Rick & Morty
+            "EVIL MORTY",
+            "BIRDPERSON",
+            "SQUANCHY",
+            "MR. MEESEEKS",
+            "SCARY TERRY",
+            "KROMBOPULOS",
+            "NOOB-NOOB",
+            "LAKEMAN",         // The Patriot
+            "COOL RICK",
+            "ICHABOD",
+            "TAVNER",
+            "LESLIE CLARET",
+            "AGATHE",
+            "MCLENNAN",
+            "GAZORPAZORP"
+        ];
+
+        function getCodename(pool, index) {
+            // CK workers get odd-indexed names, PP workers get even-indexed
+            var offset = (pool === "ck") ? 0 : 1;
+            var idx = (index * 2 + offset) % CODENAMES.length;
+            return CODENAMES[idx];
+        }
+
+        function isGenericName(name) {
+            // Detect BTC addresses or generic "worker" names
+            if (!name) return true;
+            if (name.toLowerCase() === "worker") return true;
+            if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/.test(name)) return true;
+            return false;
+        }
+
+        // ===== HASHRATE PARSER =====
+
+        function parseHashrateString(val) {
+            // Parses CKPool strings like "1.46T", "523GH/s", "12.5 MH/s" to H/s
+            // Also handles raw numbers (numeric type or numeric string)
+            if (val == null) return 0;
+            if (typeof val === "number") return isNaN(val) ? 0 : val;
+            var str = String(val).trim();
+            if (!str) return 0;
+            var match = str.match(/^([0-9.,]+)\s*([EPTGMK]?)/i);
+            if (!match) return parseFloat(str) || 0;
+            var num = parseFloat(match[1].replace(/,/g, ""));
+            if (isNaN(num)) return 0;
+            var suffix = (match[2] || "").toUpperCase();
+            var multipliers = { "E": 1e18, "P": 1e15, "T": 1e12, "G": 1e9, "M": 1e6, "K": 1e3 };
+            return num * (multipliers[suffix] || 1);
+        }
+
+        // ===== COMBINED HASHRATE =====
+
+        function getCombinedHashrate() {
+            var total = 0;
+
+            // CKPool: parse hashrate1hr string
+            if (latestCK && !latestCK.error && latestCK.hashrate1hr) {
+                total += parseHashrateString(latestCK.hashrate1hr);
+            }
+
+            // Public Pool: sum worker hashRate (string H/s values)
+            if (latestPP && !latestPP.error && latestPP.workers) {
+                for (var i = 0; i < latestPP.workers.length; i++) {
+                    var hr = parseFloat(latestPP.workers[i].hashRate);
+                    if (!isNaN(hr)) total += hr;
+                }
+            }
+
+            return total;
+        }
+
+        // ===== ODDS CALCULATION =====
+
+        function calculateOdds(difficulty, combinedHashrate) {
+            if (!difficulty || !combinedHashrate || combinedHashrate <= 0) return null;
+
+            // expected_seconds = (difficulty * 2^32) / hashrate
+            var twoTo32 = 4294967296; // 2^32
+            var expectedSeconds = (difficulty * twoTo32) / combinedHashrate;
+            var expectedYears = expectedSeconds / (365.25 * 24 * 3600);
+            var probPerBlock = combinedHashrate / (difficulty * twoTo32) * 600; // prob per ~10min block
+            var portalYear = 2026 - expectedYears;
+            var universeMultiple = expectedYears / AGE_OF_UNIVERSE;
+
+            return {
+                expectedSeconds: expectedSeconds,
+                expectedYears: expectedYears,
+                probPerBlock: probPerBlock,
+                portalYear: portalYear,
+                universeMultiple: universeMultiple,
+                beforeUniverse: portalYear < -13.8e9
+            };
+        }
+
+        // ===== FIND ERA =====
+
+        function findEra(portalYear) {
+            // Find which milestone era the portal year falls into
+            if (portalYear < MILESTONES[0].year) {
+                return { milestone: null, beforeUniverse: true };
+            }
+            for (var i = MILESTONES.length - 1; i >= 0; i--) {
+                if (portalYear <= MILESTONES[i].year) {
+                    return { milestone: MILESTONES[i], beforeUniverse: false };
+                }
+            }
+            return { milestone: MILESTONES[MILESTONES.length - 1], beforeUniverse: false };
+        }
+
+        // ===== TIMELINE RENDERING (SNAKE) =====
+
+        var SNAKE_COLS = 4;
+        var SNAKE_ROW_H = 120;
+        var SNAKE_TURN_PAD = 16;
+
+        function renderTimeline(odds) {
+            var container = document.getElementById("timeline-container");
+            var svg = document.getElementById("timeline-svg");
+
+            // Clear old nodes and markers
+            var old = container.querySelectorAll(".snake-node, .portal-marker, .portal-label");
+            for (var i = 0; i < old.length; i++) old[i].remove();
+
+            var w = container.offsetWidth;
+            if (w < 100) return;
+            var cellW = w / SNAKE_COLS;
+            var totalRows = Math.ceil(MILESTONES.length / SNAKE_COLS);
+            var totalH = totalRows * SNAKE_ROW_H;
+
+            container.style.minHeight = totalH + "px";
+            svg.setAttribute("width", w);
+            svg.setAttribute("height", totalH);
+            svg.setAttribute("viewBox", "0 0 " + w + " " + totalH);
+
+            // Calculate node positions in snake pattern
+            var nodePos = [];
+            for (var i = 0; i < MILESTONES.length; i++) {
+                var row = Math.floor(i / SNAKE_COLS);
+                var colInRow = i % SNAKE_COLS;
+                var col = (row % 2 === 0) ? colInRow : (SNAKE_COLS - 1 - colInRow);
+                nodePos.push({
+                    x: col * cellW + cellW / 2,
+                    y: row * SNAKE_ROW_H + SNAKE_ROW_H / 2
+                });
+            }
+
+            // Build waypoints (nodes + turn corners)
+            var waypoints = [];
+            for (var i = 0; i < nodePos.length; i++) {
+                waypoints.push({ x: nodePos[i].x, y: nodePos[i].y, nodeIdx: i });
+
+                if (i < nodePos.length - 1) {
+                    var row0 = Math.floor(i / SNAKE_COLS);
+                    var row1 = Math.floor((i + 1) / SNAKE_COLS);
+                    if (row0 !== row1) {
+                        var turnX = (row0 % 2 === 0) ? (w - SNAKE_TURN_PAD) : SNAKE_TURN_PAD;
+                        waypoints.push({ x: turnX, y: nodePos[i].y, nodeIdx: -1 });
+                        waypoints.push({ x: turnX, y: nodePos[i + 1].y, nodeIdx: -1 });
+                    }
+                }
+            }
+
+            // Build SVG path
+            var d = "M" + waypoints[0].x.toFixed(1) + "," + waypoints[0].y.toFixed(1);
+            for (var i = 1; i < waypoints.length; i++) {
+                d += " L" + waypoints[i].x.toFixed(1) + "," + waypoints[i].y.toFixed(1);
+            }
+            document.getElementById("snake-path").setAttribute("d", d);
+            document.getElementById("snake-path-glow").setAttribute("d", d);
+
+            // Compute cumulative distances along waypoints
+            var cumDist = [0];
+            for (var i = 1; i < waypoints.length; i++) {
+                var dx = waypoints[i].x - waypoints[i - 1].x;
+                var dy = waypoints[i].y - waypoints[i - 1].y;
+                cumDist.push(cumDist[i - 1] + Math.sqrt(dx * dx + dy * dy));
+            }
+
+            // Map each milestone node to its cumulative distance
+            var nodeDists = [];
+            for (var i = 0; i < waypoints.length; i++) {
+                if (waypoints[i].nodeIdx >= 0) {
+                    nodeDists.push(cumDist[i]);
+                }
+            }
+
+            // Render milestone nodes
+            for (var i = 0; i < MILESTONES.length; i++) {
+                var m = MILESTONES[i];
+                var pos = nodePos[i];
+
+                var div = document.createElement("div");
+                div.className = "snake-node";
+                div.style.left = (pos.x - 65) + "px";
+                div.style.top = pos.y + "px";
+                div.innerHTML = '<div class="node-dot"></div>'
+                    + '<div class="node-info">'
+                    + '<div class="node-name">' + m.label + '</div>'
+                    + '<div class="node-year">' + formatCompactYear(m.year) + '</div>'
+                    + '</div>';
+                container.appendChild(div);
+            }
+
+            // Portal marker
+            if (odds) {
+                var portalYear = odds.portalYear;
+                var px, py;
+
+                if (portalYear < MILESTONES[0].year) {
+                    // Before first milestone
+                    px = nodePos[0].x;
+                    py = nodePos[0].y;
+                } else if (portalYear >= MILESTONES[MILESTONES.length - 1].year) {
+                    px = nodePos[nodePos.length - 1].x;
+                    py = nodePos[nodePos.length - 1].y;
+                } else {
+                    // Find bounding milestones
+                    var idx = 0;
+                    for (var i = 0; i < MILESTONES.length - 1; i++) {
+                        if (portalYear >= MILESTONES[i].year && portalYear < MILESTONES[i + 1].year) {
+                            idx = i;
+                            break;
+                        }
+                    }
+
+                    // Interpolate along path between milestone idx and idx+1
+                    var frac = (portalYear - MILESTONES[idx].year) / (MILESTONES[idx + 1].year - MILESTONES[idx].year);
+                    var distA = nodeDists[idx];
+                    var distB = nodeDists[idx + 1];
+                    var portalDist = distA + frac * (distB - distA);
+
+                    // Find which waypoint segment this falls on
+                    for (var i = 1; i < waypoints.length; i++) {
+                        if (cumDist[i] >= portalDist) {
+                            var segLen = cumDist[i] - cumDist[i - 1];
+                            var segFrac = segLen > 0 ? (portalDist - cumDist[i - 1]) / segLen : 0;
+                            px = waypoints[i - 1].x + segFrac * (waypoints[i].x - waypoints[i - 1].x);
+                            py = waypoints[i - 1].y + segFrac * (waypoints[i].y - waypoints[i - 1].y);
+                            break;
+                        }
+                    }
+                }
+
+                if (px !== undefined) {
+                    var marker = document.createElement("div");
+                    marker.className = "portal-marker";
+                    marker.style.left = px + "px";
+                    marker.style.top = py + "px";
+                    container.appendChild(marker);
+
+                    var era = findEra(portalYear);
+                    var eraLabel = era.beforeUniverse ? "BEFORE SPACETIME" : (era.milestone ? era.milestone.label : "Unknown Era");
+
+                    var label = document.createElement("div");
+                    label.className = "portal-label";
+                    label.style.left = px + "px";
+                    label.style.top = (py + 26) + "px";
+                    label.innerHTML = 'PORTAL EXIT<span class="era-name">' + eraLabel + '</span>';
+                    container.appendChild(label);
+                }
+            }
+        }
+
+        // ===== UPDATE ODDS DISPLAY =====
+
+        function updateOddsDisplay() {
+            var difficulty = (latestNetwork && !latestNetwork.error) ? latestNetwork.difficulty : null;
+            var combinedHR = getCombinedHashrate();
+
+            setText("odds-hashrate", formatHashrate(combinedHR));
+
+            if (!difficulty || !combinedHR) {
+                setText("odds-time", "AWAITING DATA");
+                setText("odds-sub", "Need network difficulty and hashrate");
+                renderTimeline(null);
+                return;
+            }
+
+            var odds = calculateOdds(difficulty, combinedHR);
+            if (!odds) {
+                renderTimeline(null);
+                return;
+            }
+
+            // Main display
+            setText("odds-time", formatYears(odds.expectedYears));
+            setText("odds-sub", "to solo-mine one Bitcoin block");
+
+            // Details
+            var probStr = odds.probPerBlock < 1e-15
+                ? odds.probPerBlock.toExponential(2)
+                : odds.probPerBlock.toFixed(20).replace(/0+$/, "");
+            setText("odds-prob", probStr);
+
+            var expectedBlocks = 1 / odds.probPerBlock;
+            setText("odds-blocks", expectedBlocks >= 1e9 ? expectedBlocks.toExponential(2) : formatNumber(Math.round(expectedBlocks)));
+
+            setText("odds-year", odds.beforeUniverse
+                ? "BEFORE TIME"
+                : formatCompactYear(odds.portalYear));
+
+            // Universe multiplier
+            var callout = document.getElementById("universe-callout");
+            var banner = document.getElementById("before-banner");
+
+            if (odds.universeMultiple >= 1) {
+                callout.style.display = "";
+                setText("universe-mult", odds.universeMultiple.toFixed(1) + "x");
+            } else {
+                callout.style.display = "none";
+            }
+
+            banner.style.display = odds.beforeUniverse ? "" : "none";
+
+            // Rick quip
+            var era = findEra(odds.portalYear);
+            var quip = era.beforeUniverse ? BEFORE_UNIVERSE_QUIP : (era.milestone ? era.milestone.quip : "...");
+            setText("rick-quip-text", '"' + quip + '"');
+
+            // Timeline
+            renderTimeline(odds);
+        }
+
+        // ===== UPDATE FUNCTIONS =====
+
+        function updateCKPool(data) {
+            latestCK = data;
+            var dot = document.getElementById("ck-status-dot");
+
+            if (data.error) {
+                dot.className = "status-dot offline";
+                setText("ck-hr", "ERR");
+                setText("ck-workers", "--");
+                setText("ck-best", "--");
+                setText("ck-bestever", "--");
+            } else {
+                dot.className = "status-dot online";
+                setText("ck-hr", data.hashrate1hr || "--");
+                setText("ck-workers", formatNumber(data.workers));
+                setText("ck-best", formatDifficulty(data.bestshare));
+                setText("ck-bestever", formatDifficulty(data.bestever));
+            }
+
+            updateOperatives();
+            updateCombinedHashrate();
+            updateOddsDisplay();
+        }
+
+        function updatePublicPool(data) {
+            latestPP = data;
+            var dot = document.getElementById("pp-status-dot");
+
+            if (data.error) {
+                dot.className = "status-dot offline";
+                setText("pp-workers", "--");
+                setText("pp-best", "--");
+            } else {
+                dot.className = "status-dot online";
+                setText("pp-workers", formatNumber(data.workersCount));
+                setText("pp-best", formatDifficulty(data.bestDifficulty));
+            }
+
+            updateOperatives();
+            updateCombinedHashrate();
+            updateOddsDisplay();
+        }
+
+        function updateNetwork(data) {
+            latestNetwork = data;
+            var dot = document.getElementById("net-status-dot");
+
+            if (data.error) {
+                dot.className = "status-dot offline";
+                setText("net-diff", "ERR");
+                setText("net-height", "ERR");
+            } else {
+                dot.className = "status-dot online";
+                setText("net-diff", formatDifficulty(data.difficulty));
+                setText("net-height", formatNumber(data.blockHeight || data.blocks));
+            }
+
+            updateOddsDisplay();
+        }
+
+        function updateCombinedHashrate() {
+            var hr = getCombinedHashrate();
+            setText("combined-hashrate", hr > 0 ? formatHashrate(hr) : "--");
+        }
+
+        // ===== OPERATIVES =====
+
+        function updateOperatives() {
+            var grid = document.getElementById("operative-grid");
+            var html = "";
+
+            // CKPool workers
+            if (latestCK && !latestCK.error) {
+                var workers = latestCK.worker || [];
+                for (var i = 0; i < workers.length; i++) {
+                    var w = workers[i];
+                    var online = isOnline(w.lastshare);
+                    var rawName = w.workername || "";
+                    var dotIdx = rawName.indexOf(".");
+                    if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
+                    var name = isGenericName(rawName) ? getCodename("ck", i) : rawName.toUpperCase();
+
+                    html += '<div class="operative-card' + (online ? "" : " offline") + '">'
+                        + '<div class="card-top">'
+                        + '<span class="codename">' + name + '</span>'
+                        + '<span class="pool-badge ck">CK</span>'
+                        + '</div>'
+                        + '<div class="card-stats">'
+                        + '<div class="row"><span class="k">Hashrate (1hr)</span><span>' + (w.hashrate1hr || "--") + '</span></div>'
+                        + '<div class="row"><span class="k">Best Share</span><span>' + formatDifficulty(w.bestshare) + '</span></div>'
+                        + '<div class="row"><span class="k">Last Contact</span><span>' + timeAgo(w.lastshare) + '</span></div>'
+                        + '</div>'
+                        + '<div class="card-footer">'
+                        + '<div class="status-indicator"><span class="status-dot ' + (online ? "online" : "offline") + '"></span>'
+                        + '<span class="clearance ' + (online ? "active" : "dark") + '">' + (online ? "ACTIVE" : "DARK") + '</span></div>'
+                        + '<span class="clearance ' + (online ? "active" : "dark") + '">' + (online ? "LEVEL 5 CLEARANCE" : "COMPROMISED") + '</span>'
+                        + '</div>'
+                        + '</div>';
+                }
+            }
+
+            // Public Pool workers
+            if (latestPP && !latestPP.error) {
+                var workers = latestPP.workers || [];
+                for (var i = 0; i < workers.length; i++) {
+                    var w = workers[i];
+                    var online = isOnline(w.lastSeen);
+                    var rawName = w.name || w.sessionId || "";
+                    var name = isGenericName(rawName) ? getCodename("pp", i) : rawName.toUpperCase();
+
+                    html += '<div class="operative-card' + (online ? "" : " offline") + '">'
+                        + '<div class="card-top">'
+                        + '<span class="codename">' + name + '</span>'
+                        + '<span class="pool-badge pp">PP</span>'
+                        + '</div>'
+                        + '<div class="card-stats">'
+                        + '<div class="row"><span class="k">Hashrate</span><span>' + formatHashrate(w.hashRate) + '</span></div>'
+                        + '<div class="row"><span class="k">Best Diff</span><span>' + formatDifficulty(w.bestDifficulty) + '</span></div>'
+                        + '<div class="row"><span class="k">Last Contact</span><span>' + timeAgo(w.lastSeen) + '</span></div>'
+                        + '</div>'
+                        + '<div class="card-footer">'
+                        + '<div class="status-indicator"><span class="status-dot ' + (online ? "online" : "offline") + '"></span>'
+                        + '<span class="clearance ' + (online ? "active" : "dark") + '">' + (online ? "ACTIVE" : "DARK") + '</span></div>'
+                        + '<span class="clearance ' + (online ? "active" : "dark") + '">' + (online ? "LEVEL 5 CLEARANCE" : "COMPROMISED") + '</span>'
+                        + '</div>'
+                        + '</div>';
+                }
+            }
+
+            grid.innerHTML = html || '<div style="color: var(--text-dim); font-size: 12px;">No field operatives detected...</div>';
+        }
+
+        // ===== TIMESTAMP =====
+
+        function updateTimestamp() {
+            var now = new Date();
+            var hh = String(now.getHours()).padStart(2, "0");
+            var mm = String(now.getMinutes()).padStart(2, "0");
+            var ss = String(now.getSeconds()).padStart(2, "0");
+            document.getElementById("last-updated").textContent = "LAST TRANSMISSION: " + hh + ":" + mm + ":" + ss;
+        }
+
+        // ===== FETCH ALL =====
+
+        function fetchAll() {
+            fetch("/api/ckpool")
+                .then(function(r) { return r.json(); })
+                .then(updateCKPool)
+                .catch(function() { updateCKPool({error: "Fetch failed"}); });
+
+            fetch("/api/publicpool")
+                .then(function(r) { return r.json(); })
+                .then(updatePublicPool)
+                .catch(function() { updatePublicPool({error: "Fetch failed"}); });
+
+            fetch("/api/network")
+                .then(function(r) { return r.json(); })
+                .then(updateNetwork)
+                .catch(function() { updateNetwork({error: "Fetch failed"}); });
+
+            updateTimestamp();
+        }
+
+        fetchAll();
+        setInterval(fetchAll, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>

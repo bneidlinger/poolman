@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TangNet Mining Ops</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0a;
+            color: #33ff33;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            padding: 8px;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 0 10px;
+            border-bottom: 1px solid #1a3a1a;
+            margin-bottom: 10px;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            color: #00ffff;
+            font-weight: bold;
+        }
+        .pulse-dot {
+            width: 8px; height: 8px;
+            background: #33ff33;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 4px #33ff33; }
+            50% { opacity: 0.3; box-shadow: 0 0 1px #33ff33; }
+        }
+        .last-updated {
+            color: #666;
+            font-size: 11px;
+        }
+
+        /* Tabs */
+        .tab-bar {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 10px;
+        }
+        .tab-btn {
+            background: #0f0f0f;
+            color: #666;
+            border: 1px solid #1a3a1a;
+            border-bottom: none;
+            padding: 6px 16px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .tab-btn:hover { color: #33ff33; }
+        .tab-btn.active {
+            background: #0a0a0a;
+            color: #00ffff;
+            border-color: #00ffff;
+            border-bottom: 1px solid #0a0a0a;
+        }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        /* Network bar */
+        .network-bar {
+            display: flex;
+            gap: 16px;
+            padding: 5px 8px;
+            background: #0f0f0f;
+            border: 1px solid #1a3a1a;
+            margin-bottom: 10px;
+            font-size: 11px;
+            color: #888;
+            flex-wrap: wrap;
+        }
+        .network-bar span { white-space: nowrap; }
+        .network-bar .val { color: #00ffff; }
+
+        /* Pool sections */
+        .pool-section {
+            border: 1px solid #1a3a1a;
+            margin-bottom: 10px;
+        }
+        .pool-header {
+            background: #0f1a0f;
+            padding: 6px 8px;
+            font-size: 14px;
+            color: #00ffff;
+            border-bottom: 1px solid #1a3a1a;
+        }
+
+        /* Summary cards */
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1px;
+            background: #1a3a1a;
+        }
+        .stat {
+            background: #0a0a0a;
+            padding: 6px 8px;
+        }
+        .stat .label {
+            color: #666;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        .stat .value {
+            color: #33ff33;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Worker table */
+        .worker-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .worker-table th {
+            background: #0f1a0f;
+            color: #888;
+            text-align: left;
+            padding: 4px 6px;
+            font-weight: normal;
+            text-transform: uppercase;
+            font-size: 10px;
+            border-bottom: 1px solid #1a3a1a;
+            position: sticky;
+            top: 0;
+        }
+        .worker-table td {
+            padding: 4px 6px;
+            border-bottom: 1px solid #111;
+            white-space: nowrap;
+        }
+        .worker-table tr:hover { background: #0f1a0f; }
+
+        /* Pool badge in combined table */
+        .pool-badge {
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 2px;
+            font-weight: bold;
+        }
+        .pool-badge.ck { background: #1a2a1a; color: #33ff33; }
+        .pool-badge.pp { background: #1a1a2a; color: #6699ff; }
+
+        /* Status dots */
+        .status-dot {
+            display: inline-block;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        .status-online { background: #33ff33; }
+        .status-offline { background: #ff3333; }
+
+        /* Error state */
+        .error-msg {
+            color: #ff3333;
+            padding: 10px 8px;
+            font-style: italic;
+        }
+
+        /* Flash animation on update */
+        .flash { animation: flash-bg 0.4s ease-out; }
+        @keyframes flash-bg {
+            0% { background: #1a3a1a; }
+            100% { background: transparent; }
+        }
+
+        /* Responsive */
+        @media (max-width: 520px) {
+            body { font-size: 12px; padding: 4px; }
+            .header-title { font-size: 14px; }
+            .stat .value { font-size: 13px; }
+            .summary { grid-template-columns: repeat(2, 1fr); }
+            .tab-btn { padding: 5px 10px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">
+            <span class="pulse-dot"></span>
+            TangNet Mining Ops
+        </div>
+        <div class="last-updated" id="last-updated">Loading...</div>
+    </div>
+
+    <div class="network-bar" id="network-bar">
+        <span>Network Difficulty: <span class="val" id="net-diff">--</span></span>
+        <span>Block Height: <span class="val" id="net-height">--</span></span>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+        <button class="tab-btn active" data-tab="all">All</button>
+        <button class="tab-btn" data-tab="ckpool">CKPool</button>
+        <button class="tab-btn" data-tab="publicpool">Public Pool</button>
+    </div>
+
+    <!-- Tab: All (Combined) -->
+    <div class="tab-pane active" id="tab-all">
+        <div class="pool-section">
+            <div class="pool-header">Combined Overview</div>
+            <div class="summary" id="all-summary">
+                <div class="stat"><div class="label">Total Workers</div><div class="value" id="all-workers">--</div></div>
+                <div class="stat"><div class="label">Combined Hashrate</div><div class="value" id="all-combined-hr">--</div></div>
+                <div class="stat"><div class="label">Best Share (CK)</div><div class="value" id="all-ck-best">--</div></div>
+                <div class="stat"><div class="label">Best Diff (PP)</div><div class="value" id="all-pp-best">--</div></div>
+            </div>
+            <table class="worker-table">
+                <thead>
+                    <tr>
+                        <th>Pool</th>
+                        <th>Worker</th>
+                        <th>Hashrate</th>
+                        <th>Best</th>
+                        <th>Last Seen</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="all-worker-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tab: CKPool -->
+    <div class="tab-pane" id="tab-ckpool">
+        <div class="pool-section">
+            <div class="pool-header">CKPool (Solo Mining)</div>
+            <div class="summary" id="ck-summary">
+                <div class="stat"><div class="label">Hashrate (1m)</div><div class="value" id="ck-hr1m">--</div></div>
+                <div class="stat"><div class="label">Hashrate (1hr)</div><div class="value" id="ck-hr1hr">--</div></div>
+                <div class="stat"><div class="label">Hashrate (1d)</div><div class="value" id="ck-hr1d">--</div></div>
+                <div class="stat"><div class="label">Hashrate (7d)</div><div class="value" id="ck-hr7d">--</div></div>
+                <div class="stat"><div class="label">Workers</div><div class="value" id="ck-workers">--</div></div>
+                <div class="stat"><div class="label">Shares</div><div class="value" id="ck-shares">--</div></div>
+                <div class="stat"><div class="label">Best Share</div><div class="value" id="ck-best">--</div></div>
+                <div class="stat"><div class="label">Best Ever</div><div class="value" id="ck-bestever">--</div></div>
+            </div>
+            <div id="ck-error" class="error-msg" style="display:none;"></div>
+            <table class="worker-table" id="ck-worker-table">
+                <thead>
+                    <tr>
+                        <th>Worker</th>
+                        <th>HR 1m</th>
+                        <th>HR 1hr</th>
+                        <th>HR 1d</th>
+                        <th>Best</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="ck-worker-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tab: Public Pool -->
+    <div class="tab-pane" id="tab-publicpool">
+        <div class="pool-section">
+            <div class="pool-header">Public Pool (NerdMiners / Bitaxe)</div>
+            <div class="summary" id="pp-summary">
+                <div class="stat"><div class="label">Workers</div><div class="value" id="pp-workers">--</div></div>
+                <div class="stat"><div class="label">Best Difficulty</div><div class="value" id="pp-best">--</div></div>
+            </div>
+            <div id="pp-error" class="error-msg" style="display:none;"></div>
+            <table class="worker-table" id="pp-worker-table">
+                <thead>
+                    <tr>
+                        <th>Worker</th>
+                        <th>Hashrate</th>
+                        <th>Best Diff</th>
+                        <th>Last Seen</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="pp-worker-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        var REFRESH_INTERVAL = 30000;
+        var OFFLINE_THRESHOLD = 15 * 60 * 1000; // 15 minutes
+
+        // Store latest data for combined view
+        var latestCK = null;
+        var latestPP = null;
+
+        // --- Formatting helpers ---
+
+        function formatHashrate(hps) {
+            if (hps == null || isNaN(hps)) return "--";
+            if (hps >= 1e12) return (hps / 1e12).toFixed(2) + " TH/s";
+            if (hps >= 1e9) return (hps / 1e9).toFixed(2) + " GH/s";
+            if (hps >= 1e6) return (hps / 1e6).toFixed(2) + " MH/s";
+            if (hps >= 1e3) return (hps / 1e3).toFixed(2) + " kH/s";
+            return hps.toFixed(1) + " H/s";
+        }
+
+        function formatDifficulty(d) {
+            if (d == null || isNaN(d)) return "--";
+            if (d >= 1e15) return (d / 1e15).toFixed(2) + "P";
+            if (d >= 1e12) return (d / 1e12).toFixed(2) + "T";
+            if (d >= 1e9) return (d / 1e9).toFixed(2) + "G";
+            if (d >= 1e6) return (d / 1e6).toFixed(2) + "M";
+            if (d >= 1e3) return (d / 1e3).toFixed(2) + "k";
+            return String(d);
+        }
+
+        function formatNumber(n) {
+            if (n == null) return "--";
+            return Number(n).toLocaleString();
+        }
+
+        function timeAgo(ts) {
+            if (!ts) return "--";
+            var d;
+            if (typeof ts === "string") {
+                d = new Date(ts);
+            } else {
+                d = new Date(ts * 1000);
+            }
+            var sec = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (sec < 0) sec = 0;
+            if (sec < 60) return sec + "s ago";
+            if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+            if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+            return Math.floor(sec / 86400) + "d ago";
+        }
+
+        function isOnline(ts) {
+            if (!ts) return false;
+            var d;
+            if (typeof ts === "string") {
+                d = new Date(ts);
+            } else {
+                d = new Date(ts * 1000);
+            }
+            return (Date.now() - d.getTime()) < OFFLINE_THRESHOLD;
+        }
+
+        function statusDot(online) {
+            return '<span class="status-dot ' + (online ? 'status-online' : 'status-offline') + '"></span>' + (online ? 'ON' : 'OFF');
+        }
+
+        function setText(id, text) {
+            var el = document.getElementById(id);
+            if (el && el.textContent !== text) {
+                el.textContent = text;
+                el.classList.remove("flash");
+                void el.offsetWidth;
+                el.classList.add("flash");
+            }
+        }
+
+        function updateTimestamp() {
+            var now = new Date();
+            var hh = String(now.getHours()).padStart(2, "0");
+            var mm = String(now.getMinutes()).padStart(2, "0");
+            var ss = String(now.getSeconds()).padStart(2, "0");
+            document.getElementById("last-updated").textContent = "Updated " + hh + ":" + mm + ":" + ss;
+        }
+
+        // --- Tab switching ---
+
+        function switchTab(tabName) {
+            var btns = document.querySelectorAll(".tab-btn");
+            var panes = document.querySelectorAll(".tab-pane");
+            for (var i = 0; i < btns.length; i++) {
+                btns[i].classList.toggle("active", btns[i].getAttribute("data-tab") === tabName);
+            }
+            for (var i = 0; i < panes.length; i++) {
+                panes[i].classList.toggle("active", panes[i].id === "tab-" + tabName);
+            }
+            location.hash = tabName;
+        }
+
+        var tabBtns = document.querySelectorAll(".tab-btn");
+        for (var i = 0; i < tabBtns.length; i++) {
+            tabBtns[i].addEventListener("click", function() {
+                switchTab(this.getAttribute("data-tab"));
+            });
+        }
+
+        // Restore tab from URL hash
+        var initTab = location.hash.replace("#", "");
+        if (initTab && document.getElementById("tab-" + initTab)) {
+            switchTab(initTab);
+        }
+
+        // --- CKPool ---
+
+        function updateCKPool(data) {
+            latestCK = data;
+
+            var errEl = document.getElementById("ck-error");
+            var summaryEl = document.getElementById("ck-summary");
+            var tableEl = document.getElementById("ck-worker-table");
+
+            if (data.error) {
+                errEl.textContent = data.error;
+                errEl.style.display = "block";
+                summaryEl.style.display = "none";
+                tableEl.style.display = "none";
+                updateCombined();
+                return;
+            }
+            errEl.style.display = "none";
+            summaryEl.style.display = "";
+            tableEl.style.display = "";
+
+            setText("ck-hr1m", data.hashrate1m || "--");
+            setText("ck-hr1hr", data.hashrate1hr || "--");
+            setText("ck-hr1d", data.hashrate1d || "--");
+            setText("ck-hr7d", data.hashrate7d || "--");
+            setText("ck-workers", formatNumber(data.workers));
+            setText("ck-shares", formatNumber(data.shares));
+            setText("ck-best", formatDifficulty(data.bestshare));
+            setText("ck-bestever", formatDifficulty(data.bestever));
+
+            var tbody = document.getElementById("ck-worker-body");
+            var workers = data.worker || [];
+            var html = "";
+            for (var i = 0; i < workers.length; i++) {
+                var w = workers[i];
+                var online = isOnline(w.lastshare);
+                var rawName = w.workername || "";
+                var dotIdx = rawName.indexOf(".");
+                if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
+                var name = isGenericName(rawName) ? getCodename("ck", i) : rawName;
+                html += "<tr>"
+                    + "<td>" + name + "</td>"
+                    + "<td>" + (w.hashrate1m || "--") + "</td>"
+                    + "<td>" + (w.hashrate1hr || "--") + "</td>"
+                    + "<td>" + (w.hashrate1d || "--") + "</td>"
+                    + "<td>" + formatDifficulty(w.bestshare) + "</td>"
+                    + "<td>" + statusDot(online) + "</td>"
+                    + "</tr>";
+            }
+            tbody.innerHTML = html;
+
+            updateCombined();
+        }
+
+        // --- Public Pool ---
+
+        function updatePublicPool(data) {
+            latestPP = data;
+
+            var errEl = document.getElementById("pp-error");
+            var summaryEl = document.getElementById("pp-summary");
+            var tableEl = document.getElementById("pp-worker-table");
+
+            if (data.error) {
+                errEl.textContent = data.error;
+                errEl.style.display = "block";
+                summaryEl.style.display = "none";
+                tableEl.style.display = "none";
+                updateCombined();
+                return;
+            }
+            errEl.style.display = "none";
+            summaryEl.style.display = "";
+            tableEl.style.display = "";
+
+            setText("pp-workers", formatNumber(data.workersCount));
+            setText("pp-best", formatDifficulty(data.bestDifficulty));
+
+            var tbody = document.getElementById("pp-worker-body");
+            var workers = data.workers || [];
+            var html = "";
+            for (var i = 0; i < workers.length; i++) {
+                var w = workers[i];
+                var online = isOnline(w.lastSeen);
+                var rawName = w.name || w.sessionId || "";
+                var name = isGenericName(rawName) ? getCodename("pp", i) : rawName;
+                html += "<tr>"
+                    + "<td>" + name + "</td>"
+                    + "<td>" + formatHashrate(w.hashRate) + "</td>"
+                    + "<td>" + formatDifficulty(w.bestDifficulty) + "</td>"
+                    + "<td>" + timeAgo(w.lastSeen) + "</td>"
+                    + "<td>" + statusDot(online) + "</td>"
+                    + "</tr>";
+            }
+            tbody.innerHTML = html;
+
+            updateCombined();
+        }
+
+        // --- Agent codenames ---
+
+        var CODENAMES = [
+            "PICKLE RICK", "EVIL MORTY", "BIRDPERSON", "SQUANCHY",
+            "MR. MEESEEKS", "SCARY TERRY", "KROMBOPULOS", "NOOB-NOOB",
+            "LAKEMAN", "COOL RICK", "ICHABOD", "TAVNER",
+            "LESLIE CLARET", "AGATHE", "MCLENNAN", "GAZORPAZORP"
+        ];
+
+        function getCodename(pool, index) {
+            var offset = (pool === "ck") ? 0 : 1;
+            return CODENAMES[(index * 2 + offset) % CODENAMES.length];
+        }
+
+        function isGenericName(name) {
+            if (!name) return true;
+            if (name.toLowerCase() === "worker") return true;
+            if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/.test(name)) return true;
+            return false;
+        }
+
+        // --- Hashrate parser (CKPool returns strings like "1.46T") ---
+
+        function parseHashrateString(val) {
+            if (val == null) return 0;
+            // If it's already a number, return it directly
+            if (typeof val === "number") return isNaN(val) ? 0 : val;
+            var str = String(val).trim();
+            if (!str) return 0;
+            // Try to extract number + optional suffix (e.g. "1.46T", "523GH/s", "12.5 MH/s", "1.46Th/s")
+            var match = str.match(/^([0-9.,]+)\s*([EPTGMK]?)/i);
+            if (!match) return parseFloat(str) || 0;
+            var num = parseFloat(match[1].replace(/,/g, ""));
+            if (isNaN(num)) return 0;
+            var suffix = (match[2] || "").toUpperCase();
+            var multipliers = { "E": 1e18, "P": 1e15, "T": 1e12, "G": 1e9, "M": 1e6, "K": 1e3 };
+            return num * (multipliers[suffix] || 1);
+        }
+
+        // --- Combined (All) tab ---
+
+        function updateCombined() {
+            var ck = latestCK || {};
+            var pp = latestPP || {};
+
+            // Total workers
+            var ckCount = (!ck.error && ck.workers) ? Number(ck.workers) : 0;
+            var ppCount = (!pp.error && pp.workersCount) ? Number(pp.workersCount) : 0;
+            setText("all-workers", formatNumber(ckCount + ppCount));
+
+            // Combined hashrate: parse CKPool string + sum PP worker hashRates
+            var totalHR = 0;
+            if (!ck.error && ck.hashrate1hr) totalHR += parseHashrateString(ck.hashrate1hr);
+            if (!pp.error && pp.workers) {
+                for (var j = 0; j < pp.workers.length; j++) {
+                    var hr = parseFloat(pp.workers[j].hashRate);
+                    if (!isNaN(hr)) totalHR += hr;
+                }
+            }
+            setText("all-combined-hr", totalHR > 0 ? formatHashrate(totalHR) : "--");
+
+            // Best share from each pool
+            setText("all-ck-best", (!ck.error && ck.bestshare) ? formatDifficulty(ck.bestshare) : "--");
+            setText("all-pp-best", (!pp.error && pp.bestDifficulty) ? formatDifficulty(pp.bestDifficulty) : "--");
+
+            // Unified worker table
+            var tbody = document.getElementById("all-worker-body");
+            var html = "";
+
+            // CKPool workers
+            if (!ck.error) {
+                var ckWorkers = ck.worker || [];
+                for (var i = 0; i < ckWorkers.length; i++) {
+                    var w = ckWorkers[i];
+                    var online = isOnline(w.lastshare);
+                    var rawName = w.workername || "";
+                    var dotIdx = rawName.indexOf(".");
+                    if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
+                    var name = isGenericName(rawName) ? getCodename("ck", i) : rawName;
+                    html += "<tr>"
+                        + '<td><span class="pool-badge ck">CK</span></td>'
+                        + "<td>" + name + "</td>"
+                        + "<td>" + (w.hashrate1hr || "--") + "</td>"
+                        + "<td>" + formatDifficulty(w.bestshare) + "</td>"
+                        + "<td>" + timeAgo(w.lastshare) + "</td>"
+                        + "<td>" + statusDot(online) + "</td>"
+                        + "</tr>";
+                }
+            }
+
+            // Public Pool workers
+            if (!pp.error) {
+                var ppWorkers = pp.workers || [];
+                for (var i = 0; i < ppWorkers.length; i++) {
+                    var w = ppWorkers[i];
+                    var online = isOnline(w.lastSeen);
+                    var rawName = w.name || w.sessionId || "";
+                    var name = isGenericName(rawName) ? getCodename("pp", i) : rawName;
+                    html += "<tr>"
+                        + '<td><span class="pool-badge pp">PP</span></td>'
+                        + "<td>" + name + "</td>"
+                        + "<td>" + formatHashrate(w.hashRate) + "</td>"
+                        + "<td>" + formatDifficulty(w.bestDifficulty) + "</td>"
+                        + "<td>" + timeAgo(w.lastSeen) + "</td>"
+                        + "<td>" + statusDot(online) + "</td>"
+                        + "</tr>";
+                }
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        // --- Network ---
+
+        function updateNetwork(data) {
+            if (data.error) {
+                setText("net-diff", "err");
+                setText("net-height", "err");
+                return;
+            }
+            setText("net-diff", formatDifficulty(data.difficulty));
+            setText("net-height", formatNumber(data.blockHeight || data.blocks));
+        }
+
+        // --- Fetch all ---
+
+        function fetchAll() {
+            fetch("/api/ckpool")
+                .then(function(r) { return r.json(); })
+                .then(updateCKPool)
+                .catch(function() { updateCKPool({error: "Fetch failed"}); });
+
+            fetch("/api/publicpool")
+                .then(function(r) { return r.json(); })
+                .then(updatePublicPool)
+                .catch(function() { updatePublicPool({error: "Fetch failed"}); });
+
+            fetch("/api/network")
+                .then(function(r) { return r.json(); })
+                .then(updateNetwork)
+                .catch(function() { updateNetwork({error: "Fetch failed"}); });
+
+            updateTimestamp();
+        }
+
+        fetchAll();
+        setInterval(fetchAll, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>
