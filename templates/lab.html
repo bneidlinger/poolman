@@ -870,10 +870,12 @@
         function mergePPWorkers(workers) {
             var seen = {};
             var now = Date.now();
+            var newCount = 0;
             for (var i = 0; i < workers.length; i++) {
                 var w = workers[i];
                 var key = w.sessionId || "pp-" + i;
                 seen[key] = true;
+                if (!knownPPWorkers[key]) newCount++;
                 knownPPWorkers[key] = { data: w, isLive: true, lastApiTime: now };
             }
             for (var key in knownPPWorkers) {
@@ -882,6 +884,17 @@
                     if (now - knownPPWorkers[key].lastApiTime > GHOST_EXPIRY) {
                         delete knownPPWorkers[key];
                     }
+                }
+            }
+            // New sessionId appeared = miner reconnected; evict oldest ghosts 1:1
+            if (newCount > 0) {
+                var ghosts = [];
+                for (var key in knownPPWorkers) {
+                    if (!knownPPWorkers[key].isLive) ghosts.push(key);
+                }
+                ghosts.sort(function(a, b) { return knownPPWorkers[a].lastApiTime - knownPPWorkers[b].lastApiTime; });
+                for (var i = 0; i < Math.min(newCount, ghosts.length); i++) {
+                    delete knownPPWorkers[ghosts[i]];
                 }
             }
         }
