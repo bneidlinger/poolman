@@ -168,6 +168,7 @@
             margin-right: 4px;
         }
         .status-online { background: #33ff33; }
+        .status-stale { background: #ccaa00; }
         .status-offline { background: #ff3333; }
 
         /* Error state */
@@ -298,11 +299,55 @@
 
     <script>
         var REFRESH_INTERVAL = 30000;
-        var OFFLINE_THRESHOLD = 15 * 60 * 1000; // 15 minutes
+        var STALE_THRESHOLD = 3 * 60 * 1000;    // 3 minutes — yellow warning
+        var OFFLINE_THRESHOLD = 5 * 60 * 1000;  // 5 minutes — assumed dead
 
         // Store latest data for combined view
         var latestCK = null;
         var latestPP = null;
+
+        // Worker memory — keeps dropped workers visible as offline
+        var knownCKWorkers = {};
+        var knownPPWorkers = {};
+        var GHOST_EXPIRY = 3600000;
+
+        function mergeCKWorkers(workers) {
+            var seen = {};
+            var now = Date.now();
+            for (var i = 0; i < workers.length; i++) {
+                var w = workers[i];
+                var key = w.workername || "ck-" + i;
+                seen[key] = true;
+                knownCKWorkers[key] = { data: w, isLive: true, lastApiTime: now };
+            }
+            for (var key in knownCKWorkers) {
+                if (!seen[key]) {
+                    knownCKWorkers[key].isLive = false;
+                    if (now - knownCKWorkers[key].lastApiTime > GHOST_EXPIRY) {
+                        delete knownCKWorkers[key];
+                    }
+                }
+            }
+        }
+
+        function mergePPWorkers(workers) {
+            var seen = {};
+            var now = Date.now();
+            for (var i = 0; i < workers.length; i++) {
+                var w = workers[i];
+                var key = w.sessionId || "pp-" + i;
+                seen[key] = true;
+                knownPPWorkers[key] = { data: w, isLive: true, lastApiTime: now };
+            }
+            for (var key in knownPPWorkers) {
+                if (!seen[key]) {
+                    knownPPWorkers[key].isLive = false;
+                    if (now - knownPPWorkers[key].lastApiTime > GHOST_EXPIRY) {
+                        delete knownPPWorkers[key];
+                    }
+                }
+            }
+        }
 
         // --- Formatting helpers ---
 
@@ -357,8 +402,20 @@
             return (Date.now() - d.getTime()) < OFFLINE_THRESHOLD;
         }
 
-        function statusDot(online) {
-            return '<span class="status-dot ' + (online ? 'status-online' : 'status-offline') + '"></span>' + (online ? 'ON' : 'OFF');
+        function getWorkerStatus(ts) {
+            if (!ts) return "offline";
+            var d = (typeof ts === "string") ? new Date(ts) : new Date(ts * 1000);
+            var age = Date.now() - d.getTime();
+            if (age < STALE_THRESHOLD) return "online";
+            if (age < OFFLINE_THRESHOLD) return "stale";
+            return "offline";
+        }
+
+        function statusDot(onlineOrStatus) {
+            // Support both boolean (legacy) and string status
+            var s = (typeof onlineOrStatus === "string") ? onlineOrStatus : (onlineOrStatus ? "online" : "offline");
+            var labels = { online: "ON", stale: "STALE", offline: "OFF" };
+            return '<span class="status-dot status-' + s + '"></span>' + labels[s];
         }
 
         function setText(id, text) {
@@ -435,22 +492,24 @@
             setText("ck-shares", formatNumber(data.shares));
             setText("ck-best", formatDifficulty(data.bestshare));
             setText("ck-bestever", formatDifficulty(data.bestever));
+            mergeCKWorkers(data.worker || []);
 
             var tbody = document.getElementById("ck-worker-body");
-            var workers = data.worker || [];
+            var ckKeys = Object.keys(knownCKWorkers);
             var html = "";
-            for (var i = 0; i < workers.length; i++) {
-                var w = workers[i];
-                var online = isOnline(w.lastshare);
+            for (var i = 0; i < ckKeys.length; i++) {
+                var entry = knownCKWorkers[ckKeys[i]];
+                var w = entry.data;
+                var online = entry.isLive && isOnline(w.lastshare);
                 var rawName = w.workername || "";
                 var dotIdx = rawName.indexOf(".");
                 if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
                 var name = isGenericName(rawName) ? getCodename("ck", i) : rawName;
                 html += "<tr>"
                     + "<td>" + name + "</td>"
-                    + "<td>" + (w.hashrate1m || "--") + "</td>"
-                    + "<td>" + (w.hashrate1hr || "--") + "</td>"
-                    + "<td>" + (w.hashrate1d || "--") + "</td>"
+                    + "<td>" + (online ? (w.hashrate1m || "--") : "--") + "</td>"
+                    + "<td>" + (online ? (w.hashrate1hr || "--") : "--") + "</td>"
+                    + "<td>" + (online ? (w.hashrate1d || "--") : "--") + "</td>"
                     + "<td>" + formatDifficulty(w.bestshare) + "</td>"
                     + "<td>" + statusDot(online) + "</td>"
                     + "</tr>";
@@ -483,18 +542,20 @@
 
             setText("pp-workers", formatNumber(data.workersCount));
             setText("pp-best", formatDifficulty(data.bestDifficulty));
+            mergePPWorkers(data.workers || []);
 
             var tbody = document.getElementById("pp-worker-body");
-            var workers = data.workers || [];
+            var ppKeys = Object.keys(knownPPWorkers);
             var html = "";
-            for (var i = 0; i < workers.length; i++) {
-                var w = workers[i];
-                var online = isOnline(w.lastSeen);
+            for (var i = 0; i < ppKeys.length; i++) {
+                var entry = knownPPWorkers[ppKeys[i]];
+                var w = entry.data;
+                var online = entry.isLive;
                 var rawName = w.name || w.sessionId || "";
                 var name = isGenericName(rawName) ? getCodename("pp", i) : rawName;
                 html += "<tr>"
                     + "<td>" + name + "</td>"
-                    + "<td>" + formatHashrate(w.hashRate) + "</td>"
+                    + "<td>" + (online ? formatHashrate(w.hashRate) : "--") + "</td>"
                     + "<td>" + formatDifficulty(w.bestDifficulty) + "</td>"
                     + "<td>" + timeAgo(w.lastSeen) + "</td>"
                     + "<td>" + statusDot(online) + "</td>"
@@ -570,48 +631,46 @@
             setText("all-ck-best", (!ck.error && ck.bestshare) ? formatDifficulty(ck.bestshare) : "--");
             setText("all-pp-best", (!pp.error && pp.bestDifficulty) ? formatDifficulty(pp.bestDifficulty) : "--");
 
-            // Unified worker table
+            // Unified worker table (from memory)
             var tbody = document.getElementById("all-worker-body");
             var html = "";
 
             // CKPool workers
-            if (!ck.error) {
-                var ckWorkers = ck.worker || [];
-                for (var i = 0; i < ckWorkers.length; i++) {
-                    var w = ckWorkers[i];
-                    var online = isOnline(w.lastshare);
-                    var rawName = w.workername || "";
-                    var dotIdx = rawName.indexOf(".");
-                    if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
-                    var name = isGenericName(rawName) ? getCodename("ck", i) : rawName;
-                    html += "<tr>"
-                        + '<td><span class="pool-badge ck">CK</span></td>'
-                        + "<td>" + name + "</td>"
-                        + "<td>" + (w.hashrate1hr || "--") + "</td>"
-                        + "<td>" + formatDifficulty(w.bestshare) + "</td>"
-                        + "<td>" + timeAgo(w.lastshare) + "</td>"
-                        + "<td>" + statusDot(online) + "</td>"
-                        + "</tr>";
-                }
+            var ckKeys = Object.keys(knownCKWorkers);
+            for (var i = 0; i < ckKeys.length; i++) {
+                var entry = knownCKWorkers[ckKeys[i]];
+                var w = entry.data;
+                var online = entry.isLive && isOnline(w.lastshare);
+                var rawName = w.workername || "";
+                var dotIdx = rawName.indexOf(".");
+                if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
+                var name = isGenericName(rawName) ? getCodename("ck", i) : rawName;
+                html += "<tr>"
+                    + '<td><span class="pool-badge ck">CK</span></td>'
+                    + "<td>" + name + "</td>"
+                    + "<td>" + (online ? (w.hashrate1hr || "--") : "--") + "</td>"
+                    + "<td>" + formatDifficulty(w.bestshare) + "</td>"
+                    + "<td>" + timeAgo(w.lastshare) + "</td>"
+                    + "<td>" + statusDot(online) + "</td>"
+                    + "</tr>";
             }
 
             // Public Pool workers
-            if (!pp.error) {
-                var ppWorkers = pp.workers || [];
-                for (var i = 0; i < ppWorkers.length; i++) {
-                    var w = ppWorkers[i];
-                    var online = isOnline(w.lastSeen);
-                    var rawName = w.name || w.sessionId || "";
-                    var name = isGenericName(rawName) ? getCodename("pp", i) : rawName;
-                    html += "<tr>"
-                        + '<td><span class="pool-badge pp">PP</span></td>'
-                        + "<td>" + name + "</td>"
-                        + "<td>" + formatHashrate(w.hashRate) + "</td>"
-                        + "<td>" + formatDifficulty(w.bestDifficulty) + "</td>"
-                        + "<td>" + timeAgo(w.lastSeen) + "</td>"
-                        + "<td>" + statusDot(online) + "</td>"
-                        + "</tr>";
-                }
+            var ppKeys = Object.keys(knownPPWorkers);
+            for (var i = 0; i < ppKeys.length; i++) {
+                var entry = knownPPWorkers[ppKeys[i]];
+                var w = entry.data;
+                var online = entry.isLive;
+                var rawName = w.name || w.sessionId || "";
+                var name = isGenericName(rawName) ? getCodename("pp", i) : rawName;
+                html += "<tr>"
+                    + '<td><span class="pool-badge pp">PP</span></td>'
+                    + "<td>" + name + "</td>"
+                    + "<td>" + (online ? formatHashrate(w.hashRate) : "--") + "</td>"
+                    + "<td>" + formatDifficulty(w.bestDifficulty) + "</td>"
+                    + "<td>" + timeAgo(w.lastSeen) + "</td>"
+                    + "<td>" + statusDot(online) + "</td>"
+                    + "</tr>";
             }
 
             tbody.innerHTML = html;

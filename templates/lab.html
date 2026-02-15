@@ -234,15 +234,26 @@
             transition: border-color 0.3s;
         }
 
+        .operative-card.stale {
+            border-left-color: #ccaa00;
+            background: rgba(204, 170, 0, 0.04);
+            animation: stale-pulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes stale-pulse {
+            0%, 100% { border-left-color: #ccaa00; }
+            50% { border-left-color: #eedd00; }
+        }
+
         .operative-card.offline {
             border-left-color: var(--red-alert);
             opacity: 0.6;
-            animation: offline-pulse 2s ease-in-out infinite;
+            animation: offline-pulse 1.5s ease-in-out infinite;
         }
 
         @keyframes offline-pulse {
             0%, 100% { border-left-color: var(--red-alert); background: rgba(255, 51, 51, 0.04); }
-            50% { border-left-color: #ff6666; background: rgba(255, 51, 51, 0.1); }
+            50% { border-left-color: #ff6666; background: rgba(255, 51, 51, 0.12); }
         }
 
         .operative-card .card-top {
@@ -308,6 +319,11 @@
             box-shadow: 0 0 4px var(--portal-green);
         }
 
+        .status-dot.stale {
+            background: #ccaa00;
+            box-shadow: 0 0 4px #ccaa00;
+        }
+
         .status-dot.offline {
             background: var(--red-alert);
         }
@@ -318,6 +334,7 @@
         }
 
         .clearance.active { color: var(--portal-green); }
+        .clearance.stale { color: #ccaa00; }
         .clearance.dark { color: var(--red-alert); }
 
         /* === ODDS CALCULATOR === */
@@ -790,7 +807,8 @@
 
     <script>
         var REFRESH_INTERVAL = 30000;
-        var OFFLINE_THRESHOLD = 15 * 60 * 1000;
+        var STALE_THRESHOLD = 3 * 60 * 1000;    // 3 min — yellow warning
+        var OFFLINE_THRESHOLD = 5 * 60 * 1000;  // 5 min — assumed dead
         var AGE_OF_UNIVERSE = 13.8e9; // years
 
         var latestCK = null;
@@ -823,6 +841,50 @@
         ];
 
         var BEFORE_UNIVERSE_QUIP = "Your hashrate is so pathetic it transcends spacetime itself. We'd need to go to a dimension where math is broken just to make your odds work.";
+
+        // ===== WORKER MEMORY =====
+        // Track known workers so they show as DARK when they drop from the API
+        var knownCKWorkers = {};   // keyed by workername
+        var knownPPWorkers = {};   // keyed by sessionId
+        var GHOST_EXPIRY = 3600000; // remove ghosts after 1 hour
+
+        function mergeCKWorkers(workers) {
+            var seen = {};
+            var now = Date.now();
+            for (var i = 0; i < workers.length; i++) {
+                var w = workers[i];
+                var key = w.workername || "ck-" + i;
+                seen[key] = true;
+                knownCKWorkers[key] = { data: w, isLive: true, lastApiTime: now };
+            }
+            for (var key in knownCKWorkers) {
+                if (!seen[key]) {
+                    knownCKWorkers[key].isLive = false;
+                    if (now - knownCKWorkers[key].lastApiTime > GHOST_EXPIRY) {
+                        delete knownCKWorkers[key];
+                    }
+                }
+            }
+        }
+
+        function mergePPWorkers(workers) {
+            var seen = {};
+            var now = Date.now();
+            for (var i = 0; i < workers.length; i++) {
+                var w = workers[i];
+                var key = w.sessionId || "pp-" + i;
+                seen[key] = true;
+                knownPPWorkers[key] = { data: w, isLive: true, lastApiTime: now };
+            }
+            for (var key in knownPPWorkers) {
+                if (!seen[key]) {
+                    knownPPWorkers[key].isLive = false;
+                    if (now - knownPPWorkers[key].lastApiTime > GHOST_EXPIRY) {
+                        delete knownPPWorkers[key];
+                    }
+                }
+            }
+        }
 
         // ===== FORMATTING HELPERS =====
 
@@ -886,6 +948,15 @@
             if (typeof ts === "string") { d = new Date(ts); }
             else { d = new Date(ts * 1000); }
             return (Date.now() - d.getTime()) < OFFLINE_THRESHOLD;
+        }
+
+        function getWorkerStatus(ts) {
+            if (!ts) return "offline";
+            var d = (typeof ts === "string") ? new Date(ts) : new Date(ts * 1000);
+            var age = Date.now() - d.getTime();
+            if (age < STALE_THRESHOLD) return "online";
+            if (age < OFFLINE_THRESHOLD) return "stale";
+            return "offline";
         }
 
         function setText(id, text) {
@@ -1243,6 +1314,7 @@
                 setText("ck-workers", formatNumber(data.workers));
                 setText("ck-best", formatDifficulty(data.bestshare));
                 setText("ck-bestever", formatDifficulty(data.bestever));
+                mergeCKWorkers(data.worker || []);
             }
 
             updateOperatives();
@@ -1262,6 +1334,7 @@
                 dot.className = "status-dot online";
                 setText("pp-workers", formatNumber(data.workersCount));
                 setText("pp-best", formatDifficulty(data.bestDifficulty));
+                mergePPWorkers(data.workers || []);
             }
 
             updateOperatives();
@@ -1296,86 +1369,82 @@
         function updateOperatives() {
             var grid = document.getElementById("operative-grid");
             var html = "";
+            var offlineCount = 0;
+            var ckIdx = 0;
+            var ppIdx = 0;
 
-            // CKPool workers
-            if (latestCK && !latestCK.error) {
-                var workers = latestCK.worker || [];
-                for (var i = 0; i < workers.length; i++) {
-                    var w = workers[i];
-                    var online = isOnline(w.lastshare);
-                    var rawName = w.workername || "";
-                    var dotIdx = rawName.indexOf(".");
-                    if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
-                    var name = isGenericName(rawName) ? getCodename("ck", i) : rawName.toUpperCase();
+            // Status labels for three states
+            var STATUS_CFG = {
+                online:  { dot: "online",  cls: "",         clearCls: "active", label: "ACTIVE",      clearance: "LEVEL 5 CLEARANCE" },
+                stale:   { dot: "stale",   cls: " stale",   clearCls: "stale",  label: "LOSING SIGNAL", clearance: "SIGNAL DEGRADED" },
+                offline: { dot: "offline", cls: " offline", clearCls: "dark",   label: "DARK",        clearance: "COMPROMISED" }
+            };
 
-                    html += '<div class="operative-card' + (online ? "" : " offline") + '">'
-                        + '<div class="card-top">'
-                        + '<span class="codename">' + name + '</span>'
-                        + '<span class="pool-badge ck">CK</span>'
-                        + '</div>'
-                        + '<div class="card-stats">'
-                        + '<div class="row"><span class="k">Hashrate (1hr)</span><span>' + (w.hashrate1hr || "--") + '</span></div>'
-                        + '<div class="row"><span class="k">Best Share</span><span>' + formatDifficulty(w.bestshare) + '</span></div>'
-                        + '<div class="row"><span class="k">Last Contact</span><span>' + timeAgo(w.lastshare) + '</span></div>'
-                        + '</div>'
-                        + '<div class="card-footer">'
-                        + '<div class="status-indicator"><span class="status-dot ' + (online ? "online" : "offline") + '"></span>'
-                        + '<span class="clearance ' + (online ? "active" : "dark") + '">' + (online ? "ACTIVE" : "DARK") + '</span></div>'
-                        + '<span class="clearance ' + (online ? "active" : "dark") + '">' + (online ? "LEVEL 5 CLEARANCE" : "COMPROMISED") + '</span>'
-                        + '</div>'
-                        + '</div>';
-                }
+            // CKPool workers (from memory)
+            var ckKeys = Object.keys(knownCKWorkers);
+            for (var i = 0; i < ckKeys.length; i++) {
+                var entry = knownCKWorkers[ckKeys[i]];
+                var w = entry.data;
+                var status = entry.isLive ? getWorkerStatus(w.lastshare) : "offline";
+                if (status !== "online") offlineCount++;
+                var sc = STATUS_CFG[status];
+                var rawName = w.workername || "";
+                var dotIdx = rawName.indexOf(".");
+                if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
+                var name = isGenericName(rawName) ? getCodename("ck", ckIdx) : rawName.toUpperCase();
+                ckIdx++;
+
+                html += '<div class="operative-card' + sc.cls + '">'
+                    + '<div class="card-top">'
+                    + '<span class="codename">' + name + '</span>'
+                    + '<span class="pool-badge ck">CK</span>'
+                    + '</div>'
+                    + '<div class="card-stats">'
+                    + '<div class="row"><span class="k">Hashrate (1hr)</span><span>' + (status === "online" ? (w.hashrate1hr || "--") : "0") + '</span></div>'
+                    + '<div class="row"><span class="k">Best Share</span><span>' + formatDifficulty(w.bestshare) + '</span></div>'
+                    + '<div class="row"><span class="k">Last Contact</span><span>' + timeAgo(w.lastshare) + '</span></div>'
+                    + '</div>'
+                    + '<div class="card-footer">'
+                    + '<div class="status-indicator"><span class="status-dot ' + sc.dot + '"></span>'
+                    + '<span class="clearance ' + sc.clearCls + '">' + sc.label + '</span></div>'
+                    + '<span class="clearance ' + sc.clearCls + '">' + sc.clearance + '</span>'
+                    + '</div>'
+                    + '</div>';
             }
 
-            // Public Pool workers
-            if (latestPP && !latestPP.error) {
-                var workers = latestPP.workers || [];
-                for (var i = 0; i < workers.length; i++) {
-                    var w = workers[i];
-                    var online = isOnline(w.lastSeen);
-                    var rawName = w.name || w.sessionId || "";
-                    var name = isGenericName(rawName) ? getCodename("pp", i) : rawName.toUpperCase();
+            // Public Pool workers (from memory)
+            var ppKeys = Object.keys(knownPPWorkers);
+            for (var i = 0; i < ppKeys.length; i++) {
+                var entry = knownPPWorkers[ppKeys[i]];
+                var w = entry.data;
+                var status = entry.isLive ? getWorkerStatus(w.lastSeen) : "offline";
+                if (status !== "online") offlineCount++;
+                var sc = STATUS_CFG[status];
+                var rawName = w.name || w.sessionId || "";
+                var name = isGenericName(rawName) ? getCodename("pp", ppIdx) : rawName.toUpperCase();
+                ppIdx++;
 
-                    html += '<div class="operative-card' + (online ? "" : " offline") + '">'
-                        + '<div class="card-top">'
-                        + '<span class="codename">' + name + '</span>'
-                        + '<span class="pool-badge pp">PP</span>'
-                        + '</div>'
-                        + '<div class="card-stats">'
-                        + '<div class="row"><span class="k">Hashrate</span><span>' + formatHashrate(w.hashRate) + '</span></div>'
-                        + '<div class="row"><span class="k">Best Diff</span><span>' + formatDifficulty(w.bestDifficulty) + '</span></div>'
-                        + '<div class="row"><span class="k">Last Contact</span><span>' + timeAgo(w.lastSeen) + '</span></div>'
-                        + '</div>'
-                        + '<div class="card-footer">'
-                        + '<div class="status-indicator"><span class="status-dot ' + (online ? "online" : "offline") + '"></span>'
-                        + '<span class="clearance ' + (online ? "active" : "dark") + '">' + (online ? "ACTIVE" : "DARK") + '</span></div>'
-                        + '<span class="clearance ' + (online ? "active" : "dark") + '">' + (online ? "LEVEL 5 CLEARANCE" : "COMPROMISED") + '</span>'
-                        + '</div>'
-                        + '</div>';
-                }
+                html += '<div class="operative-card' + sc.cls + '">'
+                    + '<div class="card-top">'
+                    + '<span class="codename">' + name + '</span>'
+                    + '<span class="pool-badge pp">PP</span>'
+                    + '</div>'
+                    + '<div class="card-stats">'
+                    + '<div class="row"><span class="k">Hashrate</span><span>' + (status === "online" ? formatHashrate(w.hashRate) : "0") + '</span></div>'
+                    + '<div class="row"><span class="k">Best Diff</span><span>' + formatDifficulty(w.bestDifficulty) + '</span></div>'
+                    + '<div class="row"><span class="k">Last Contact</span><span>' + timeAgo(w.lastSeen) + '</span></div>'
+                    + '</div>'
+                    + '<div class="card-footer">'
+                    + '<div class="status-indicator"><span class="status-dot ' + sc.dot + '"></span>'
+                    + '<span class="clearance ' + sc.clearCls + '">' + sc.label + '</span></div>'
+                    + '<span class="clearance ' + sc.clearCls + '">' + sc.clearance + '</span>'
+                    + '</div>'
+                    + '</div>';
             }
 
             grid.innerHTML = html || '<div style="color: var(--text-dim); font-size: 12px;">No field operatives detected...</div>';
 
-            // Count offline agents and update header alert
-            var offlineCount = 0;
-            var totalCount = 0;
-
-            if (latestCK && !latestCK.error) {
-                var ckW = latestCK.worker || [];
-                for (var i = 0; i < ckW.length; i++) {
-                    totalCount++;
-                    if (!isOnline(ckW[i].lastshare)) offlineCount++;
-                }
-            }
-            if (latestPP && !latestPP.error) {
-                var ppW = latestPP.workers || [];
-                for (var i = 0; i < ppW.length; i++) {
-                    totalCount++;
-                    if (!isOnline(ppW[i].lastSeen)) offlineCount++;
-                }
-            }
-
+            // Update header alert (stale + offline both count)
             var alertEl = document.getElementById("agent-alert");
             if (offlineCount > 0) {
                 alertEl.classList.add("visible");
