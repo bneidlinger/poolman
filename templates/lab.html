@@ -1000,7 +1000,23 @@
             "LESLIE CLARET",
             "AGATHE",
             "MCLENNAN",
-            "GAZORPAZORP"
+            "GAZORPAZORP",
+            "PORTAL MORTY",    // Rick & Morty additions
+            "COUNCIL RICK",
+            "JAGUAR",
+            "PHOENIX PERSON",
+            "UNITY",
+            "TAMMY",
+            "ABRADOLF",
+            "PENCILVESTER",
+            "NIGHTINGALE",     // Spy/military additions
+            "FOXHOUND",
+            "VIPER",
+            "BLACKBRIAR",
+            "KINGFISHER",
+            "STONEBRIDGE",
+            "GHOST PROTOCOL",
+            "WINTER SOLDIER"
         ];
 
         function getCodename(pool, index) {
@@ -1034,6 +1050,28 @@
             var suffix = (match[2] || "").toUpperCase();
             var multipliers = { "E": 1e18, "P": 1e15, "T": 1e12, "G": 1e9, "M": 1e6, "K": 1e3 };
             return num * (multipliers[suffix] || 1);
+        }
+
+        // ===== CLEARANCE LEVEL =====
+
+        function getClearanceLevel(hashrateHps) {
+            var hps = (typeof hashrateHps === "number") ? hashrateHps : parseHashrateString(hashrateHps);
+            if (!hps || hps <= 0) return { level: 1, className: "ESP32" };
+
+            var ASIC_THRESHOLD = 1e10; // 10 GH/s
+            if (hps >= ASIC_THRESHOLD) {
+                // ASIC class: 100 GH/s (level 1) to 2 TH/s (level 99)
+                var minH = 1e11;  // 100 GH/s
+                var maxH = 2e12;  // 2 TH/s
+                var lvl = Math.round(1 + (hps - minH) / (maxH - minH) * 98);
+                return { level: Math.max(1, Math.min(99, lvl)), className: "ASIC" };
+            } else {
+                // ESP32/NerdMiner class: 100 kH/s (level 1) to 1 MH/s (level 99)
+                var minH = 1e5;   // 100 kH/s
+                var maxH = 1e6;   // 1 MH/s
+                var lvl = Math.round(1 + (hps - minH) / (maxH - minH) * 98);
+                return { level: Math.max(1, Math.min(99, lvl)), className: "ESP32" };
+            }
         }
 
         // ===== COMBINED HASHRATE =====
@@ -1388,7 +1426,7 @@
 
             // Status labels for three states
             var STATUS_CFG = {
-                online:  { dot: "online",  cls: "",         clearCls: "active", label: "ACTIVE",      clearance: "LEVEL 5 CLEARANCE" },
+                online:  { dot: "online",  cls: "",         clearCls: "active", label: "ACTIVE" },
                 stale:   { dot: "stale",   cls: " stale",   clearCls: "stale",  label: "LOSING SIGNAL", clearance: "SIGNAL DEGRADED" },
                 offline: { dot: "offline", cls: " offline", clearCls: "dark",   label: "DARK",        clearance: "COMPROMISED" }
             };
@@ -1407,6 +1445,12 @@
                 var name = isGenericName(rawName) ? getCodename("ck", ckIdx) : rawName.toUpperCase();
                 ckIdx++;
 
+                var clearanceText = sc.clearance || "";
+                if (status === "online" && w.hashrate1hr) {
+                    var cl = getClearanceLevel(w.hashrate1hr);
+                    clearanceText = "LEVEL " + cl.level + " \u2014 " + cl.className;
+                }
+
                 html += '<div class="operative-card' + sc.cls + '">'
                     + '<div class="card-top">'
                     + '<span class="codename">' + name + '</span>'
@@ -1420,7 +1464,7 @@
                     + '<div class="card-footer">'
                     + '<div class="status-indicator"><span class="status-dot ' + sc.dot + '"></span>'
                     + '<span class="clearance ' + sc.clearCls + '">' + sc.label + '</span></div>'
-                    + '<span class="clearance ' + sc.clearCls + '">' + sc.clearance + '</span>'
+                    + '<span class="clearance ' + sc.clearCls + '">' + clearanceText + '</span>'
                     + '</div>'
                     + '</div>';
             }
@@ -1437,6 +1481,12 @@
                 var name = isGenericName(rawName) ? getCodename("pp", ppIdx) : rawName.toUpperCase();
                 ppIdx++;
 
+                var clearanceText = sc.clearance || "";
+                if (status === "online" && w.hashRate) {
+                    var cl = getClearanceLevel(parseFloat(w.hashRate));
+                    clearanceText = "LEVEL " + cl.level + " \u2014 " + cl.className;
+                }
+
                 html += '<div class="operative-card' + sc.cls + '">'
                     + '<div class="card-top">'
                     + '<span class="codename">' + name + '</span>'
@@ -1450,7 +1500,7 @@
                     + '<div class="card-footer">'
                     + '<div class="status-indicator"><span class="status-dot ' + sc.dot + '"></span>'
                     + '<span class="clearance ' + sc.clearCls + '">' + sc.label + '</span></div>'
-                    + '<span class="clearance ' + sc.clearCls + '">' + sc.clearance + '</span>'
+                    + '<span class="clearance ' + sc.clearCls + '">' + clearanceText + '</span>'
                     + '</div>'
                     + '</div>';
             }
