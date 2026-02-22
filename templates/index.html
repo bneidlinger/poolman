@@ -193,6 +193,93 @@
             .summary { grid-template-columns: repeat(2, 1fr); }
             .tab-btn { padding: 5px 10px; font-size: 11px; }
         }
+
+        /* Settings button */
+        .settings-btn {
+            background: none;
+            border: 1px solid #1a3a1a;
+            color: #666;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 2px 8px;
+            font-family: inherit;
+            line-height: 1;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .settings-btn:hover {
+            color: #33ff33;
+            border-color: #33ff33;
+        }
+
+        /* Settings modal */
+        .settings-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        .settings-overlay.open {
+            display: flex;
+        }
+        .settings-modal {
+            background: #0a0a0a;
+            border: 1px solid #33ff33;
+            padding: 20px 24px;
+            min-width: 300px;
+            max-width: 90vw;
+        }
+        .settings-modal h2 {
+            color: #00ffff;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: bold;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+        }
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #1a3a1a;
+        }
+        .settings-row label {
+            color: #33ff33;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .settings-row input[type="checkbox"] {
+            accent-color: #33ff33;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .settings-close {
+            display: block;
+            margin-top: 16px;
+            background: none;
+            border: 1px solid #1a3a1a;
+            color: #00ffff;
+            font-family: inherit;
+            font-size: 12px;
+            padding: 6px 16px;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .settings-close:hover {
+            border-color: #00ffff;
+        }
+
+        /* Hide disabled pool tabs */
+        .tab-btn.pool-disabled { display: none; }
     </style>
 </head>
 <body>
@@ -200,6 +287,7 @@
         <div class="header-title">
             <span class="pulse-dot"></span>
             TangNet Mining Ops
+            <button class="settings-btn" id="settings-btn">&#9881;</button>
         </div>
         <div class="last-updated" id="last-updated">Loading...</div>
     </div>
@@ -297,6 +385,22 @@
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div class="settings-overlay" id="settings-overlay">
+        <div class="settings-modal">
+            <h2>// Pool Settings</h2>
+            <div class="settings-row">
+                <label for="toggle-ckpool">CKPool (Solo Mining)</label>
+                <input type="checkbox" id="toggle-ckpool" checked>
+            </div>
+            <div class="settings-row">
+                <label for="toggle-publicpool">Public Pool (Bitaxe)</label>
+                <input type="checkbox" id="toggle-publicpool" checked>
+            </div>
+            <button class="settings-close" id="settings-close">[CLOSE]</button>
+        </div>
+    </div>
+
     <script>
         var REFRESH_INTERVAL = 30000;
         var STALE_THRESHOLD = 3 * 60 * 1000;    // 3 minutes — yellow warning
@@ -310,6 +414,96 @@
         var knownCKWorkers = {};
         var knownPPWorkers = {};
         var GHOST_EXPIRY = 3600000;
+
+        // --- Settings (localStorage) ---
+        var SETTINGS_KEY = "poolman_settings";
+        var DEFAULT_SETTINGS = { pools: { ckpool: true, publicpool: true } };
+
+        function loadSettings() {
+            try {
+                var raw = localStorage.getItem(SETTINGS_KEY);
+                if (raw) {
+                    var s = JSON.parse(raw);
+                    if (!s.pools) s.pools = {};
+                    for (var k in DEFAULT_SETTINGS.pools) {
+                        if (s.pools[k] === undefined) s.pools[k] = DEFAULT_SETTINGS.pools[k];
+                    }
+                    return s;
+                }
+            } catch (e) {}
+            return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+        }
+
+        function saveSettings(settings) {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+
+        function isPoolEnabled(poolKey) {
+            return currentSettings.pools[poolKey] !== false;
+        }
+
+        var currentSettings = loadSettings();
+
+        // --- Settings modal handlers ---
+        (function() {
+            var overlay = document.getElementById("settings-overlay");
+            var btnOpen = document.getElementById("settings-btn");
+            var btnClose = document.getElementById("settings-close");
+            var toggleCK = document.getElementById("toggle-ckpool");
+            var togglePP = document.getElementById("toggle-publicpool");
+
+            btnOpen.addEventListener("click", function() {
+                toggleCK.checked = isPoolEnabled("ckpool");
+                togglePP.checked = isPoolEnabled("publicpool");
+                overlay.classList.add("open");
+            });
+
+            btnClose.addEventListener("click", function() {
+                overlay.classList.remove("open");
+            });
+
+            overlay.addEventListener("click", function(e) {
+                if (e.target === overlay) overlay.classList.remove("open");
+            });
+
+            toggleCK.addEventListener("change", function() {
+                currentSettings.pools.ckpool = toggleCK.checked;
+                saveSettings(currentSettings);
+                if (!toggleCK.checked) {
+                    knownCKWorkers = {};
+                    latestCK = null;
+                }
+                applyPoolVisibility();
+                updateCombined();
+            });
+
+            togglePP.addEventListener("change", function() {
+                currentSettings.pools.publicpool = togglePP.checked;
+                saveSettings(currentSettings);
+                if (!togglePP.checked) {
+                    knownPPWorkers = {};
+                    latestPP = null;
+                }
+                applyPoolVisibility();
+                updateCombined();
+            });
+        })();
+
+        // --- Pool visibility ---
+        function applyPoolVisibility() {
+            var ckBtn = document.querySelector('.tab-btn[data-tab="ckpool"]');
+            var ppBtn = document.querySelector('.tab-btn[data-tab="publicpool"]');
+            if (ckBtn) ckBtn.classList.toggle("pool-disabled", !isPoolEnabled("ckpool"));
+            if (ppBtn) ppBtn.classList.toggle("pool-disabled", !isPoolEnabled("publicpool"));
+
+            // If active tab's pool was disabled, switch to "all"
+            var activeBtn = document.querySelector(".tab-btn.active");
+            if (activeBtn && activeBtn.classList.contains("pool-disabled")) {
+                switchTab("all");
+            }
+        }
+
+        applyPoolVisibility();
 
         function mergeCKWorkers(workers) {
             var seen = {};
@@ -625,8 +819,9 @@
         // --- Combined (All) tab ---
 
         function updateCombined() {
-            var ck = latestCK || {};
-            var pp = latestPP || {};
+            var settings = loadSettings();
+            var ck = (settings.pools.ckpool !== false) ? (latestCK || {}) : {};
+            var pp = (settings.pools.publicpool !== false) ? (latestPP || {}) : {};
 
             // Total workers
             var ckCount = (!ck.error && ck.workers) ? Number(ck.workers) : 0;
@@ -653,41 +848,45 @@
             var html = "";
 
             // CKPool workers
-            var ckKeys = Object.keys(knownCKWorkers);
-            for (var i = 0; i < ckKeys.length; i++) {
-                var entry = knownCKWorkers[ckKeys[i]];
-                var w = entry.data;
-                var online = entry.isLive && isOnline(w.lastshare);
-                var rawName = w.workername || "";
-                var dotIdx = rawName.indexOf(".");
-                if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
-                var name = isGenericName(rawName) ? getCodename("ck", i) : rawName;
-                html += "<tr>"
-                    + '<td><span class="pool-badge ck">CK</span></td>'
-                    + "<td>" + name + "</td>"
-                    + "<td>" + (online ? (w.hashrate1hr || "--") : "--") + "</td>"
-                    + "<td>" + formatDifficulty(w.bestshare) + "</td>"
-                    + "<td>" + timeAgo(w.lastshare) + "</td>"
-                    + "<td>" + statusDot(online) + "</td>"
-                    + "</tr>";
+            if (settings.pools.ckpool !== false) {
+                var ckKeys = Object.keys(knownCKWorkers);
+                for (var i = 0; i < ckKeys.length; i++) {
+                    var entry = knownCKWorkers[ckKeys[i]];
+                    var w = entry.data;
+                    var online = entry.isLive && isOnline(w.lastshare);
+                    var rawName = w.workername || "";
+                    var dotIdx = rawName.indexOf(".");
+                    if (dotIdx !== -1) rawName = rawName.substring(dotIdx + 1);
+                    var name = isGenericName(rawName) ? getCodename("ck", i) : rawName;
+                    html += "<tr>"
+                        + '<td><span class="pool-badge ck">CK</span></td>'
+                        + "<td>" + name + "</td>"
+                        + "<td>" + (online ? (w.hashrate1hr || "--") : "--") + "</td>"
+                        + "<td>" + formatDifficulty(w.bestshare) + "</td>"
+                        + "<td>" + timeAgo(w.lastshare) + "</td>"
+                        + "<td>" + statusDot(online) + "</td>"
+                        + "</tr>";
+                }
             }
 
             // Public Pool workers
-            var ppKeys = Object.keys(knownPPWorkers);
-            for (var i = 0; i < ppKeys.length; i++) {
-                var entry = knownPPWorkers[ppKeys[i]];
-                var w = entry.data;
-                var online = entry.isLive;
-                var rawName = w.name || w.sessionId || "";
-                var name = isGenericName(rawName) ? getCodename("pp", i) : rawName;
-                html += "<tr>"
-                    + '<td><span class="pool-badge pp">PP</span></td>'
-                    + "<td>" + name + "</td>"
-                    + "<td>" + (online ? formatHashrate(w.hashRate) : "--") + "</td>"
-                    + "<td>" + formatDifficulty(w.bestDifficulty) + "</td>"
-                    + "<td>" + timeAgo(w.lastSeen) + "</td>"
-                    + "<td>" + statusDot(online) + "</td>"
-                    + "</tr>";
+            if (settings.pools.publicpool !== false) {
+                var ppKeys = Object.keys(knownPPWorkers);
+                for (var i = 0; i < ppKeys.length; i++) {
+                    var entry = knownPPWorkers[ppKeys[i]];
+                    var w = entry.data;
+                    var online = entry.isLive;
+                    var rawName = w.name || w.sessionId || "";
+                    var name = isGenericName(rawName) ? getCodename("pp", i) : rawName;
+                    html += "<tr>"
+                        + '<td><span class="pool-badge pp">PP</span></td>'
+                        + "<td>" + name + "</td>"
+                        + "<td>" + (online ? formatHashrate(w.hashRate) : "--") + "</td>"
+                        + "<td>" + formatDifficulty(w.bestDifficulty) + "</td>"
+                        + "<td>" + timeAgo(w.lastSeen) + "</td>"
+                        + "<td>" + statusDot(online) + "</td>"
+                        + "</tr>";
+                }
             }
 
             tbody.innerHTML = html;
@@ -708,15 +907,21 @@
         // --- Fetch all ---
 
         function fetchAll() {
-            fetch("/api/ckpool")
-                .then(function(r) { return r.json(); })
-                .then(updateCKPool)
-                .catch(function() { updateCKPool({error: "Fetch failed"}); });
+            var settings = loadSettings();
 
-            fetch("/api/publicpool")
-                .then(function(r) { return r.json(); })
-                .then(updatePublicPool)
-                .catch(function() { updatePublicPool({error: "Fetch failed"}); });
+            if (settings.pools.ckpool !== false) {
+                fetch("/api/ckpool")
+                    .then(function(r) { return r.json(); })
+                    .then(updateCKPool)
+                    .catch(function() { updateCKPool({error: "Fetch failed"}); });
+            }
+
+            if (settings.pools.publicpool !== false) {
+                fetch("/api/publicpool")
+                    .then(function(r) { return r.json(); })
+                    .then(updatePublicPool)
+                    .catch(function() { updatePublicPool({error: "Fetch failed"}); });
+            }
 
             fetch("/api/network")
                 .then(function(r) { return r.json(); })

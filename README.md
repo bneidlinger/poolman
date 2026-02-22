@@ -5,7 +5,7 @@
 > *"Listen Morty, mining Bitcoin solo is like trying to find a specific grain of sand on every beach in the multiverse. But we're doing it anyway because we're not cowards."*
 > — Rick Sanchez, C-137
 
-A Bitcoin solo mining dashboard for the beautifully delusional. Aggregates live stats from [CKPool](https://solo.ckpool.org) and [Public Pool](https://public-pool.io) into a terminal-style command center that makes your mass of 500 GH/s miners feel like an interdimensional covert operation.
+A Bitcoin solo mining dashboard for the beautifully delusional. Aggregates live stats from [CKPool](https://solo.ckpool.org) and [Public Pool](https://public-pool.io) into a terminal-style command center that makes your mass of 500 GH/s miners feel like an interdimensional covert operation. Pools can be individually toggled on/off via a settings modal — settings persist in `localStorage` and sync across both dashboards.
 
 ![Operation TangNet Lab Dashboard](screenshot.png)
 
@@ -13,7 +13,7 @@ A Bitcoin solo mining dashboard for the beautifully delusional. Aggregates live 
 
 ### `/` — Pi Dashboard (Kiosk Mode)
 
-The original. Green-on-black terminal aesthetic designed for a Raspberry Pi 5 with a small screen. Tabbed interface (All / CKPool / Public Pool), auto-refreshes every 30 seconds, responsive down to 480px. No frills. Just numbers.
+The original. Green-on-black terminal aesthetic designed for a Raspberry Pi 5 with a small screen. Tabbed interface (All / CKPool / Public Pool), auto-refreshes every 30 seconds, responsive down to 480px. Gear icon opens a settings modal to enable/disable pools — disabled pool tabs hide automatically. No frills. Just numbers.
 
 ### `/lab` — Lab Dashboard (Operation TangNet)
 
@@ -24,6 +24,7 @@ The fun one. A three-panel command center themed as a mashup of *Rick and Morty*
 - **Field Operatives** — Worker "dossier" cards with codenames (Pickle Rick, Evil Morty, Lakeman, etc.), pool badges, ACTIVE/DARK status, clearance levels
 - **Interdimensional Odds Calculator** — Calculates your probability of finding a block, converts expected time to years, maps it to a historical era, and roasts you with a Rick quote
 - **Portal Timeline** — A snake-pattern visualization mapping your expected wait across 20 milestones from the Big Bang to present day, with a spinning portal marker showing where you'd land. Spoiler: it's usually somewhere between the Pyramids and the invention of fire
+- **Pool Settings** — Gear icon opens a spy-themed config modal to toggle pool channels on/off. Disabled pools stop fetching, hide their source panels and footer dots, and recalculate odds with remaining hashrate
 
 ## Quick Start
 
@@ -63,7 +64,9 @@ start-kiosk.sh      — Chromium kiosk launcher
 
 **API routes:** `GET /api/ckpool` `GET /api/publicpool` `GET /api/network`
 
-No database. No auth. No WebSockets. Just three fetch calls on a 30-second loop and a mass of CSS that would make a design system engineer cry.
+No database. No auth. No WebSockets. Just three fetch calls on a 30-second loop, a `localStorage` settings object, and a mass of CSS that would make a design system engineer cry.
+
+**Settings:** Stored in `localStorage` under `poolman_settings`. Shape: `{ pools: { ckpool: true, publicpool: true } }`. New pool keys auto-default to `true` via merge logic, so adding a pool later is a one-line change.
 
 ## Pi Deployment
 
